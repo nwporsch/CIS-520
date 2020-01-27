@@ -23,6 +23,12 @@ test_alarm_multiple (void)
 {
   test_sleep (5, 7);
 }
+
+/*Function added by me that does 70 alarms */
+void
+test_alarm_mega (void){
+ test_sleep (5, 70);
+}
 
 /* Information about the test. */
 struct sleep_test 
