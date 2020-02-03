@@ -331,14 +331,17 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's priority to NEW_PRIORITY. If the current thread no longer has the highest
+   priority, then it yields.  */
 void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
 }
 
-/* Returns the current thread's priority. */
+/* Returns the current thread's priority. In the presence of priority donation, returns the highest
+   (donated) priority. You need not provide any interface to allow a thread to directly modify other
+   thread's priorities. The priority scheduler is not used in any later project.*/
 int
 thread_get_priority (void) 
 {
