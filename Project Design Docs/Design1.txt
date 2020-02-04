@@ -7,7 +7,7 @@ CIS 520 - Programming Project #1
 >> Fill in the names and email addresses of your group members.
 
 Aidan Javier <apjavier@ksu.edu>
-Nickalas Porsch <nwporsch.ksu.edu>
+Nickalas Porsch <nwporsch@ksu.edu>
 Caleb Logan <catiel@ksu.edu>
 
 ---- PRELIMINARIES ----
