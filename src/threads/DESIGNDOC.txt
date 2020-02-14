@@ -1,0 +1,22 @@
+								+-------------------+
+								|		CIS 520     |
+								|     PROJECT 1     |
+								|   DESIGN DOCUMENT |
+								+-------------------+
+								
+---- GROUP ----
+
+Nickalas Porsch <nwporsch@ksu.edu>
+Caleb Logan     <catiel@ksu.edu>
+Aidan Javier    <apjavier@ksu.edu>
+
+---- PRELIMINARIES ----
+
+
+---- DATA STRUCTURES ----
+
+---- ALGORITHMS ----
+
+---- SYNCHRONIZATION ----
+
+---- RATIONALE ----
