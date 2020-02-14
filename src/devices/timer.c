@@ -8,7 +8,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "kernel/list.h" /* Using this to create double linked list for list of sleeping threads */
-
+#include "threads/malloc.h"
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -39,15 +39,6 @@ static void check_sleeping_threads(struct list* thread_list);
 static struct semaphore* sleep_semaphore = NULL;
 /* A list of threads that are currently asleep */
 static struct list* sleeping_thread_list = NULL;
-
-/* Keeps track of the thread that is sleeping and when it should wake up. */
-struct sleeping_element
-{
-	struct list_elem elem;
-	struct thread * sleeping_thread;  
-	int64_t when_to_wakeup;
-	int64_t start_of_sleep;
-};
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -111,7 +102,7 @@ timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks (); 
   
-  struct sleeping_element * new_element = malloc(sizeof(sleeping_element));
+  struct sleeping_element * new_element = malloc(sizeof(struct sleeping_element));
   new_element->sleeping_thread = current_thread();
   new_element->start_of_sleep = start;
   new_element->when_to_wakeup = ticks;
@@ -121,13 +112,13 @@ timer_sleep (int64_t ticks)
   	sleep_semaphore = malloc(sizeof(struct semaphore));
   	printf("%s: Initialize semaphore\n", thread_name());
   	sema_init(sleep_semaphore, 1);
-	list_init(sleeping_thread_list);
+	list_init(&sleeping_thread_list);
   }
 
 
 
   ASSERT (intr_get_level () == INTR_ON);
-  list_push_back(sleeping_thread_list, new_element);
+  list_push_back(sleeping_thread_list, new_element->elem);
   sema_down(sleep_semaphore);
 
  // while(timer_elapsed(start) < ticks);
@@ -294,7 +285,7 @@ void check_sleeping_threads(struct list* thread_list)
   
   while(current != NULL)
   {
-	struct sleeping_element se = list_entry (current, struct sleeping_element , elem);
+	struct sleeping_element * se = list_entry (current, struct sleeping_element , elem);
 
 	if(timer_elapsed(se->start_of_sleep) > ticks)
 	{
