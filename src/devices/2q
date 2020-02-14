@@ -7,9 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include "kernel/list.h" /* Using this to create double linked list for list of sleeping threads */
-
-
+  
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -31,24 +29,7 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
-
-/* Goes through list of sleeping threads to see which are ready */
-static void check_sleeping_threads(struct list* thread_list);
-
-/* Used to check to set a thread to sleep. */
 static struct semaphore* sleep_semaphore = NULL;
-/* A list of threads that are currently asleep */
-static struct list* sleeping_thread_list = NULL;
-
-/* Keeps track of the thread that is sleeping and when it should wake up. */
-struct sleeping_element
-{
-	struct list_elem elem;
-	struct thread * sleeping_thread;  
-	int64_t when_to_wakeup;
-	int64_t start_of_sleep;
-};
-
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -92,7 +73,6 @@ timer_ticks (void)
   enum intr_level old_level = intr_disable ();
   int64_t t = ticks;
   intr_set_level (old_level);
-
   return t;
 }
 
@@ -109,33 +89,22 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks (); 
-  
-  struct sleeping_element * new_element = malloc(sizeof(sleeping_element));
-  new_element->sleeping_thread = current_thread();
-  new_element->start_of_sleep = start;
-  new_element->when_to_wakeup = ticks;
+  int64_t start = timer_ticks ();
 
   if(sleep_semaphore == NULL){
   	//Creating a semaphore to help with sleeping
   	sleep_semaphore = malloc(sizeof(struct semaphore));
-  	printf("%s: Initialize semaphore\n", thread_name());
+	lo
+  	printf("Initialize semaphore\n");
   	sema_init(sleep_semaphore, 1);
-	list_init(sleeping_thread_list);
   }
-
-
-
   ASSERT (intr_get_level () == INTR_ON);
-  list_push_back(sleeping_thread_list, new_element);
+  while(timer_elapsed(start) < ticks);
+  printf("SLEEPING\n");
   sema_down(sleep_semaphore);
-
- // while(timer_elapsed(start) < ticks);
-  printf("%s: SLEEPING\n", thread_name());
-  
- // printf("%s: Wake UP\n", thread_name());
- // thread_yield();
-  //sema_up(sleep_semaphore);
+  printf("Wake UP\n");
+  thread_yield();
+  sema_up(sleep_semaphore);
   
 }
 
@@ -286,24 +255,4 @@ real_time_delay (int64_t num, int32_t denom)
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
-}
-
-void check_sleeping_threads(struct list* thread_list)
-{
-  struct list_elem * current = list_begin(thread_list);
-  
-  while(current != NULL)
-  {
-	struct sleeping_element se = list_entry (current, struct sleeping_element , elem);
-
-	if(timer_elapsed(se->start_of_sleep) > ticks)
-	{
-		sema_up(sleep_semaphore);
-		list_remove(current);
-		thread_yield();
-	}
-
-	current = list_next(thread_list);
-  }
-
 }
