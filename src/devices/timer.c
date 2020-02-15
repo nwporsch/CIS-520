@@ -32,13 +32,11 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
-/* Goes through list of sleeping threads to see which are ready */
-static void check_sleeping_threads(struct list* thread_list);
 
-/* Used to check to set a thread to sleep. */
-static struct semaphore* sleep_semaphore = NULL;
+
+
 /* A list of threads that are currently asleep */
-static struct list* sleeping_thread_list = NULL;
+static struct list sleeping_thread_list;
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -47,6 +45,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleeping_thread_list);
+  printf("initalize list\n\n");
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -83,7 +83,7 @@ timer_ticks (void)
   enum intr_level old_level = intr_disable ();
   int64_t t = ticks;
   intr_set_level (old_level);
-
+  
   return t;
 }
 
@@ -100,34 +100,28 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks (); 
-  
-  struct sleeping_element * new_element = malloc(sizeof(struct sleeping_element));
-  new_element->sleeping_thread = current_thread();
-  new_element->start_of_sleep = start;
-  new_element->when_to_wakeup = ticks;
+  struct thread * current_thread = thread_current();
+  enum intr_level old_level;
+  printf("Entering Timer\n\n");
+  int64_t start = timer_ticks();
 
-  if(sleep_semaphore == NULL){
-  	//Creating a semaphore to help with sleeping
-  	sleep_semaphore = malloc(sizeof(struct semaphore));
-  	printf("%s: Initialize semaphore\n", thread_name());
-  	sema_init(sleep_semaphore, 1);
-	list_init(&sleeping_thread_list);
+  
+
+  if (current_thread-> sleep_semaphore == NULL) {
+	  current_thread->sleep_semaphore = (struct semaphore *) malloc(sizeof(struct semaphore));
   }
 
 
+  current_thread->when_to_wakeup = timer_elapsed(start);
 
-  ASSERT (intr_get_level () == INTR_ON);
-  list_push_back(sleeping_thread_list, new_element->elem);
-  sema_down(sleep_semaphore);
+  ASSERT(intr_get_level() == INTR_ON);
 
- // while(timer_elapsed(start) < ticks);
+  old_level = intr_disable();
+  list_push_back(&(sleeping_thread_list), &(current_thread->elem));
+  intr_set_level(old_level);
+
+  sema_down(current_thread->sleep_semaphore); 
   printf("%s: SLEEPING\n", thread_name());
-  
- // printf("%s: Wake UP\n", thread_name());
- // thread_yield();
-  //sema_up(sleep_semaphore);
-  
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -206,6 +200,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  check_sleeping_threads(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -279,22 +274,28 @@ real_time_delay (int64_t num, int32_t denom)
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
 
-void check_sleeping_threads(struct list* thread_list)
+void check_sleeping_threads(int64_t ticks)
 {
-  struct list_elem * current = list_begin(thread_list);
-  
-  while(current != NULL)
+  struct list_elem * e = NULL;
+  enum intr_level old_level;
+  struct thread * sleeping_thread;
+
+  /*Copied from thread_foreach*/
+  for (e = list_begin(&sleeping_thread_list); e != list_end(&sleeping_thread_list);
+	  e = list_next(e))
   {
-	struct sleeping_element * se = list_entry (current, struct sleeping_element , elem);
+	  sleeping_thread = list_entry(e, struct thread, elem);
 
-	if(timer_elapsed(se->start_of_sleep) > ticks)
-	{
-		sema_up(sleep_semaphore);
-		list_remove(current);
-		thread_yield();
-	}
+	  if (sleeping_thread->when_to_wakeup < ticks)
+	  {
+		  printf("BEFORE SEMAPHORE\n\n");
+		  sema_up(sleeping_thread->sleep_semaphore);
 
-	current = list_next(thread_list);
+		  printf("%s: WAKE UP\n", thread_name());
+		  old_level = intr_disable();
+		  list_remove(e);
+		  intr_set_level(old_level);
+	  }
   }
 
 }

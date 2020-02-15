@@ -27,13 +27,7 @@ void timer_ndelay (int64_t nanoseconds);
 
 void timer_print_stats (void);
 
-/* Keeps track of the thread that is sleeping and when it should wake up. */
-struct sleeping_element
-{
-	struct list_elem * elem;
-	struct thread * sleeping_thread;
-	int64_t when_to_wakeup;
-	int64_t start_of_sleep;
-};
+/* Goes through list of sleeping threads to see which are ready */
+void check_sleeping_threads(int64_t ticks);
 
 #endif /* devices/timer.h */
