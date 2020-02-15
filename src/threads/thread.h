@@ -102,7 +102,13 @@ struct thread
 #endif
 
     /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
+    unsigned magic; /* Detects stack overflow. */
+
+    struct list donation_list;
+
+    /*my stuff*/
+
+    struct lock* waiting_lock;
   };
 
 /* If false (default), use round-robin scheduler.

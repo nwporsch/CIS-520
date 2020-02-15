@@ -37,6 +37,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+static const int MAX_DEPTH = 8;
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -337,6 +339,7 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  
   thread_current ()->priority = new_priority;
 }
 
@@ -344,6 +347,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
+  
   return thread_current ()->priority;
 }
 
@@ -584,3 +588,37 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void
+lock_remove (struct lock *lock)
+{
+  struct thread *t;
+
+  if(t-> wait_on_lock == lock) list_remove(e);
+}
+
+
+/* Part two*/
+void
+donation()
+{
+  struct thread* t = thread_current();
+  struct lock* l = t->waiting_lock;
+  int depth = 0;
+  while(l && depth < MAX_DEPTH)
+  {
+    if(l->holder->priority < t->priority)
+    {
+      l->holder->priority = t->priority;
+      t = l->holder;
+      l = t->waiting_lockl;
+      depth++;
+    }
+    else
+    {
+      return;
+    }
+	    
+  }
+
+}
