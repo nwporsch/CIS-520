@@ -108,6 +108,24 @@ struct thread
 
     /*my stuff*/
 
+    struct list_elem donation_elem;
+
+    struct lock* wait_on_lock;
+        /* Shared between thread.c and synch.c. */
+    /* The list element for the the sleeping list */
+    struct list_elem sleep_elem;
+
+
+    /* The thread's semaphore, owned by threads/synch.h */
+    struct semaphore timer_sema;
+
+    /* List of threads that have donated to this thread */
+    struct list donated_list;
+
+    /* The current ticks */
+    int64_t sleep_ticks;
+
+    /* The lock currently trying to be acquired by the thread */
     struct lock* waiting_lock;
   };
 
@@ -146,5 +164,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void donation(void);
 
 #endif /* threads/thread.h */
