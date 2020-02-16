@@ -206,9 +206,10 @@ thread_create(const char *name, int priority,
 	thread_unblock(t);
 
 
-	/*old_level = intr_disable();
-	higher_priority_yield();
-	intr_set_level(old_level);*/
+	old_level = intr_disable();
+	priority_check();
+	//higher_priority_yield();
+	intr_set_level(old_level);
 
 	return tid;
 }
@@ -373,22 +374,30 @@ void priority_check(void) {
 void
 thread_set_priority(int new_priority)
 {
-	//thread_current()->priority = new_priority;
+	/*
+	printf("Set Priority\n");
+	thread_current()->priority = new_priority;
 	
 	enum intr_level old_level = intr_disable();
 
 	thread_current()->priority = new_priority;
 	int old_priority = thread_current()->priority;
-
+	printf("Before if\n");
 	if (!list_empty(&thread_current()->donation_list))
 	{
-		int max_list_priority = list_entry(list_front(&thread_current()->donation_list), struct thread, donation_elem)->priority;
+		printf("Inside if\n");
+		struct list_elem * donation_elem = (list_front(&(thread_current()->donation_list)));
+		printf("After elem declati\n\n");
+
+		int max_list_priority = list_entry(donation_elem, struct thread, donation_elem)->priority;
+		printf("Declared: %d", max_list_priority);
 		if (thread_current()->priority < max_list_priority)
 		{
+			printf("Inside other iff\n");
 			thread_current()->priority = max_list_priority;
 		}
 	}
-
+	printf("Got max priority\n");
 	if (thread_current()->priority > old_priority)
 	{
 		donation();
@@ -397,7 +406,26 @@ thread_set_priority(int new_priority)
 	{
 		thread_yield();
 	}
-	
+*/
+	enum intr_level old_level = intr_disable();
+	struct list_elem *e;
+	struct thread *max_priority_thread = thread_current();
+	thread_current()->priority = new_priority;
+	intr_set_level(old_level);
+
+
+	if (!list_empty(&ready_list))
+	{
+
+		e = list_begin(&ready_list);
+		struct thread *front_of_ready_queue_thread = list_entry(e, struct thread, allelem);
+			
+		if (front_of_ready_queue_thread->priority > thread_current()->priority) {
+			max_priority_thread = front_of_ready_queue_thread;
+			thread_yield();
+		}
+	}
+
 }
 
 /* Returns the current thread's priority. */
@@ -690,8 +718,8 @@ void higher_priority_yield() {
 	struct list_elem * element = list_begin(&ready_list);
 	struct thread * waiting_thread;
 	struct thread * max_priority_thread;
-
-	printf("CHECKING YIELD\n\n");
+	struct list_elem *e;
+	
 
 	enum intr_level old_level = intr_disable();
 
@@ -700,9 +728,10 @@ void higher_priority_yield() {
 		 max_priority_thread = list_entry(list_front(&ready_list), struct thread, allelem);
 	}
 
-	while (!list_empty(&ready_list))
+	for (e = list_begin(&ready_list); e != list_end(&ready_list);
+		e = list_next(e))
 	{
-		waiting_thread = list_entry(list_front(&ready_list), struct thread, allelem);
+		waiting_thread = list_entry(e, struct thread, allelem);
 
 		if (waiting_thread->priority > max_priority_thread->priority)
 		{
@@ -722,5 +751,4 @@ void higher_priority_yield() {
 	}
 
 	intr_set_level(old_level);
-	printf("MADE IT OUT\n");
 }
