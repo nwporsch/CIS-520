@@ -1,0 +1,166 @@
+
+CIS 520 - Programming Project #1
+
+                   
+---- GROUP ----
+
+Nickalas Porsch <nwporsch@ksu.edu>
+Caleb Logan     <catiel@ksu.edu>
+Aidan Javier    <apjavier@ksu.edu>
+
+
+---- PRELIMINARIES ----
+
+Help with Semaphores : https://github.com/angrave/SystemProgramming/wiki/Synchronization%2C-Part-1%3A-Mutex-Locks
+Helped with understanding how to setup  sleep linked list: https://github.com/ctboley/pintos-cis520/blob/master/pintosproject1/pintos/src/devices/timer.c
+Basics of Semaphores: https://www.tutorialspoint.com/semaphores-in-operating-system
+Learning how to Backtrace: http://courses.cs.vt.edu/~cs3204/spring2006/gback/debugging.html
+Understanding how the timer works: https://github.com/jhauserw3241/Pintos-520/blob/master/src/devices/timer.c
+Using Semaphores with Timer and other bugs in code: https://github.com/Hindol/pintos/blob/master/devices/timer.c
+
+
+
+                 ALARM CLOCK
+                 ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+static struct list sleeping_thread_list; 
+This list is used to keep track of all threads that are currently asleep. The list is also
+ordered by who will wakeup next.
+
+int64_t when_to_wakeup;
+Added to struct thread to keep track of when the thread needed to wake up.
+
+struct list_elem sleepelem;
+Added to struct thread to keep track where the thread is located when in sleeping_thread_list.
+
+struct semaphore semasleep;
+Used to tell the individual thread when to sleep and can be used in timer to wake up the thread.
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe what happens in a call to your timer_sleep(),
+>> including the effects of the timer interrupt handler.
+
+timer_sleep initalizes the semasleep semaphore in the thread which is used to place the thread to sleep.
+The time for when the thread needs to wakeup is also recorded and the list element sleepelem in the thread
+is placed in sleeping_thread_list. The list orders the threads inside it to be from closest to waking up to
+farthest using compare_wakeups. Then the timer interupt calls check_sleeping_threads to see which threads
+are ready to wake up and will wakeup the necessary threads.
+
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+
+To mminimize the amount of time spent in the interrupt, sleeping_thread_list is organized by nearest time to wakeup.
+Once all necessary threads have been awoken, the interrupt will stop moving through the list and end the interrupt.
+
+
+---- SYNCHRONIZATION ----
+
+>> A4: How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+
+To stop multiple thread calls we use semaphores to keep track of when a thread needs to sleep. We also disable interrupts to 
+stop threads from only one thread being added the sleeping_thread_list at a time.
+
+>> A5: How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+We disable interrupts when editing the sleeping_thread_list. This also no other threads to access the list.
+
+---- RATIONALE ----
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> other designs that you considered?
+
+This design works because of the combination of semaphores and interrupts. The semaphores
+allow threads to keep track of when a specific thread is asleep. This is better than using
+interrupts all of the time because we will lose interrupts. But, by combining the use of 
+interrupts and semaphores, the interrupts control access to sleeping_thread_list and semaphores
+control when threads sleep.
+
+
+             PRIORITY SCHEDULING
+             ===================
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+>> B2: Explain the data structure used to track priority donation.
+
+
+---- ALGORITHMS ----
+
+>> B3: How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?
+
+>> B4: Describe the sequence of events when a call to lock_acquire()
+>> causes a priority donation.  How is nested donation handled?
+
+>> B5: Describe the sequence of events when lock_release() is called
+>> on a lock that a higher-priority thread is waiting for.
+
+---- SYNCHRONIZATION ----
+
+>> B6: Describe a potential race in thread_set_priority() and explain
+>> how your implementation avoids it.  Can you use a lock to avoid
+>> this race?
+
+---- RATIONALE ----
+
+>> B7: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
+
+              ADVANCED SCHEDULER [EXTRA CREDIT]
+              =================================
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+
+>> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
+>> has a recent_cpu value of 0.  Fill in the table below showing the
+>> scheduling decision and the priority and recent_cpu values for each
+>> thread after each given number of timer ticks:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0
+ 4
+ 8
+12
+16
+20
+24
+28
+32
+36
+
+>> C3: Did any ambiguities in the scheduler specification make values
+>> in the table uncertain?  If so, what rule did you use to resolve
+>> them?  Does this match the behavior of your scheduler?
+
+>> C4: How is the way you divided the cost of scheduling between code
+>> inside and outside interrupt context likely to affect performance?
+
+---- RATIONALE ----
+
+>> C5: Briefly critique your design, pointing out advantages and
+>> disadvantages in your design choices.  If you were to have extra
+>> time to work on this part of the project, how might you choose to
+>> refine or improve your design?
+
+
