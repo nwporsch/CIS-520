@@ -87,10 +87,12 @@ struct thread
     struct list_elem elem;              /* List element. */
 	
 	
-	
+	/* Timer Thread data START */
 	struct semaphore semasleep;         /* A semaphore to tell the thread to sleep or wake up.*/
 	int64_t when_to_wakeup;             /* Keeps track of when a thread needs to wake up.*/
 	struct list_elem sleepelem;         /* Where the thread is located in sleeping_thread_list in timer.c */
+    /* Timer Thread data END   */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -98,6 +100,33 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+
+	/* Priority Scheduling data START */
+	struct list donation_list;
+	/*my stuff*/
+
+	struct list_elem donation_elem;
+
+	struct lock* wait_on_lock;
+	/* Shared between thread.c and synch.c. */
+/* The list element for the the sleeping list */
+	struct list_elem sleep_elem;
+
+
+	/* The thread's semaphore, owned by threads/synch.h */
+	struct semaphore timer_sema;
+
+	/* List of threads that have donated to this thread */
+	struct list donated_list;
+
+	/* The current ticks */
+	int64_t sleep_ticks;
+
+	/* The lock currently trying to be acquired by the thread */
+	struct lock* waiting_lock;
+	/* Priority Scheduling data END */
+
   };
 
 /* If false (default), use round-robin scheduler.
@@ -135,5 +164,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void donation(void);
 
 #endif /* threads/thread.h */
