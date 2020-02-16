@@ -22,8 +22,6 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-static struct lock  sleeping_list_lock;
-
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -48,10 +46,7 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 
-  printf("initalize list\n\n");
-  lock_init(&sleeping_list_lock);
   list_init(&sleeping_thread_list);
-  printf("Initalize Lock\n\n");
 
 }
 
@@ -107,29 +102,27 @@ void
 timer_sleep (int64_t ticks) 
 {
 
-	int64_t start = timer_ticks();
-	struct thread * current_thread = thread_current();
+  struct thread * current_thread;
+  int64_t start = timer_ticks();
 
-	sema_init(&current_thread->sleep_semaphore, 1);
+  ASSERT(intr_get_level() == INTR_ON);
 
-	current_thread->when_to_wakeup = start;
+  if (ticks <= 0) {
+	  return;
+  }
 
-	ASSERT(intr_get_level() == INTR_ON);
-	/*
-	while (timer_elapsed(current_thread->when_to_wakeup) < ticks)
-		thread_yield();
-		*/
-
+  printf("%s: SLEEPING\n", thread_name());
   
 
-
-
-  lock_acquire(&sleeping_list_lock);
-  list_push_back(&(sleeping_thread_list), &(current_thread->sleepelem));
-  lock_release(&sleeping_list_lock);
-  printf("%s: SLEEPING\n", thread_name());
-  sema_down(&current_thread->sleep_semaphore);
-
+  current_thread = thread_current();
+  sema_init(&current_thread->semasleep, 0);
+  current_thread->when_to_wakeup = start + ticks;
+  intr_disable();
+  list_insert_ordered(&(sleeping_thread_list), &(thread_current()->sleepelem), compare_wakeups, NULL);
+  intr_enable();
+ printf("Before DOWN\n\n");
+ sema_down(&(current_thread->semasleep));
+  printf("%s: Different thread\n\n\ ", thread_name());
 
 }
 
@@ -209,7 +202,38 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  check_sleeping_threads(ticks);
+
+
+  struct list_elem * element = list_begin(&sleeping_thread_list);
+  struct thread * sleeping_thread;
+  ticks = timer_ticks();
+
+  enum intr_level old_level = intr_disable();
+  while (!list_empty(&sleeping_thread_list))
+  {
+	  sleeping_thread = list_entry(element, struct thread, sleepelem);
+
+	  if (ticks >= sleeping_thread->when_to_wakeup)
+	  {
+		  printf("%s: Entered If\n\n", thread_name());
+		  sema_up(&(sleeping_thread->semasleep));
+		  list_pop_front(&sleeping_thread_list);
+
+
+
+		  printf("%s: WAKE UP\n", thread_name());
+
+		  element = list_begin(&sleeping_thread_list);
+	  }
+	  else {
+		  break;
+	  }
+
+
+  }
+  intr_set_level(old_level);
+
+  //check_sleeping_threads(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -287,25 +311,39 @@ real_time_delay (int64_t num, int32_t denom)
 /* Goes through the sleeping threads and figures out which ones need to wakeup*/
 void check_sleeping_threads(int64_t ticks)
 {
-  struct list_elem * e;
-  struct thread * sleeping_thread;
+	struct list_elem * element = list_begin(&sleeping_thread_list);
+	struct thread * sleeping_thread;
+	ticks = timer_ticks();
 
-  /*Copied from thread_foreach*/
-  for (e = list_begin(&sleeping_thread_list); e != list_end(&sleeping_thread_list);
-	  e = list_next(e))
-  {	
-	  printf("ENTERING LOOP\n\n");
-	  sleeping_thread = list_entry(e, struct thread, sleepelem);
+	while (!list_empty(&sleeping_thread_list))
+	{
+		sleeping_thread = list_entry(element, struct thread, sleepelem);
 
-	  if (timer_elapsed(sleeping_thread->when_to_wakeup) < ticks)
-	  {
-		 lock_acquire(&sleeping_list_lock);
-		  //list_remove(e);
-		  lock_release(&sleeping_list_lock);
-		  //sema_up(&sleeping_thread->sleep_semaphore);
+		if (ticks <= sleeping_thread->when_to_wakeup)
+		{
+			printf("%s: Entered If\n\n", thread_name());
+			enum intr_level old_level = intr_disable();
+			list_pop_front(&sleeping_thread_list);
+			thread_unblock(sleeping_thread);
+			intr_set_level(old_level);
 
-		  printf("%s: WAKE UP\n", thread_name());
-	  }
-  }
+			//sema_up(&(sleeping_thread->semasleep));
+			
+			printf("%s: WAKE UP\n", thread_name());
+			
+			element = list_begin(&sleeping_thread_list);
+		}
+		else {
+			break;
+		}
 
+
+	}
+}
+
+bool compare_wakeups(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED) {
+	struct thread *first = list_entry(elem1, struct thread, sleepelem);
+	struct thread *second = list_entry(elem2, struct thread, sleepelem);
+
+	return first->when_to_wakeup < second->when_to_wakeup;
 }

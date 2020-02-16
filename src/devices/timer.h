@@ -31,4 +31,7 @@ void timer_print_stats (void);
 /* Goes through list of sleeping threads to see which are ready */
 void check_sleeping_threads(int64_t ticks);
 
+
+bool compare_wakeups(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
+
 #endif /* devices/timer.h */
