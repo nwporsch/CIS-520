@@ -83,11 +83,14 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-	int64_t when_to_wakeup;
-	struct list_elem sleepelem;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-	struct semaphore semasleep;
+	
+	
+	
+	struct semaphore semasleep;         /* A semaphore to tell the thread to sleep or wake up.*/
+	int64_t when_to_wakeup;             /* Keeps track of when a thread needs to wake up.*/
+	struct list_elem sleepelem;         /* Where the thread is located in sleeping_thread_list in timer.c */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
