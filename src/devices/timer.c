@@ -33,8 +33,6 @@ static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
 
-
-
 /* A list of threads that are currently asleep */
 static struct list sleeping_thread_list;
 
@@ -111,18 +109,16 @@ timer_sleep (int64_t ticks)
 	  return;
   }
 
-  printf("%s: SLEEPING\n", thread_name());
-  
-
+ 
   current_thread = thread_current();
   sema_init(&current_thread->semasleep, 0);
-  current_thread->when_to_wakeup = start + ticks;
+  current_thread->when_to_wakeup = timer_ticks() + ticks;
+
   intr_disable();
   list_insert_ordered(&(sleeping_thread_list), &(thread_current()->sleepelem), compare_wakeups, NULL);
   intr_enable();
- printf("Before DOWN\n\n");
+
  sema_down(&(current_thread->semasleep));
-  printf("%s: Different thread\n\n\ ", thread_name());
 
 }
 
@@ -202,38 +198,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-
-
-  struct list_elem * element = list_begin(&sleeping_thread_list);
-  struct thread * sleeping_thread;
-  ticks = timer_ticks();
-
-  enum intr_level old_level = intr_disable();
-  while (!list_empty(&sleeping_thread_list))
-  {
-	  sleeping_thread = list_entry(element, struct thread, sleepelem);
-
-	  if (ticks >= sleeping_thread->when_to_wakeup)
-	  {
-		  printf("%s: Entered If\n\n", thread_name());
-		  sema_up(&(sleeping_thread->semasleep));
-		  list_pop_front(&sleeping_thread_list);
-
-
-
-		  printf("%s: WAKE UP\n", thread_name());
-
-		  element = list_begin(&sleeping_thread_list);
-	  }
-	  else {
-		  break;
-	  }
-
-
-  }
-  intr_set_level(old_level);
-
-  //check_sleeping_threads(ticks);
+   
+  check_sleeping_threads(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -315,22 +281,16 @@ void check_sleeping_threads(int64_t ticks)
 	struct thread * sleeping_thread;
 	ticks = timer_ticks();
 
+	enum intr_level old_level = intr_disable();
 	while (!list_empty(&sleeping_thread_list))
 	{
-		sleeping_thread = list_entry(element, struct thread, sleepelem);
+		sleeping_thread = list_entry(list_front(&sleeping_thread_list), struct thread, sleepelem);
 
-		if (ticks <= sleeping_thread->when_to_wakeup)
+		if (ticks >= sleeping_thread->when_to_wakeup)
 		{
-			printf("%s: Entered If\n\n", thread_name());
-			enum intr_level old_level = intr_disable();
+			sema_up(&(sleeping_thread->semasleep));
 			list_pop_front(&sleeping_thread_list);
-			thread_unblock(sleeping_thread);
-			intr_set_level(old_level);
 
-			//sema_up(&(sleeping_thread->semasleep));
-			
-			printf("%s: WAKE UP\n", thread_name());
-			
 			element = list_begin(&sleeping_thread_list);
 		}
 		else {
@@ -339,6 +299,7 @@ void check_sleeping_threads(int64_t ticks)
 
 
 	}
+	intr_set_level(old_level);
 }
 
 bool compare_wakeups(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED) {
