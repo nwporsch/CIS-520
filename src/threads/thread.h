@@ -110,8 +110,6 @@ struct thread
 
 	struct lock* wait_on_lock;
 	/* Shared between thread.c and synch.c. */
-/* The list element for the the sleeping list */
-	struct list_elem sleep_elem;
 
 
 	/* The thread's semaphore, owned by threads/synch.h */
@@ -166,5 +164,7 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void donation(void);
+
+bool compare_priorities(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 
 #endif /* threads/thread.h */
