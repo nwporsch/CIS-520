@@ -239,7 +239,7 @@ thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	// list_push_back (&ready_list, &t->elem);
+	
 	list_insert_ordered(&ready_list, &t->elem, priority_order, NULL);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
@@ -334,7 +334,7 @@ thread_foreach(thread_action_func *func, void *aux)
 	}
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's priority to a new priority. */
 void
 thread_set_priority(int new_priority)
 {
@@ -344,36 +344,37 @@ thread_set_priority(int new_priority)
 	thread_current()->base_priority = new_priority;
 	int old_priority = thread_current()->priority;
 
-	/* If the head of this thread's list of donated priorities is a bigger priority,
-		  then change this thread's priority to the head's priority */
+   /*Goes through the list of donor and takes out the first element (which has the highest priority. */
+
 	if (!list_empty(&thread_current()->donation_list)) {
 		int max_list_priority = list_entry(list_front(&thread_current()->donation_list), struct thread, donation_elem)->priority;
+	
+		/*Checks to see if max piority is greater than current priority and change to higher priority. */
 		if (thread_current()->priority < max_list_priority) {
 			thread_current()->priority = max_list_priority;
 		}
 
-		/* If the donated list had a bigger priority that we set this thread's priority to,
-	  then donate the priority to child threads */
+		/* If there is a higher priority in the donated threads we need to spread it to any other thread who would like to access our lock. */
 		if (thread_current()->priority > old_priority) {
-			// donation(thread_current(), thread_current()->waiting_lock);
 			donation();
 		}
-		/* Otherwise, check if we should yield */
+		/* If no longer highest priority then move to allow the higher priority thread access. */
 		else if (thread_current()->priority < old_priority) {
-			priority_check(); // Thread should yield if the no longer highest priority
+			priority_check();
 		}
 
 	}
 	else {
+		/*If the donor list is empty then update the thread's priority to the new priority. */
 		thread_current()->priority = new_priority;
 		thread_current()->base_priority = new_priority;
 	}
 
-
+	/* Enable interupts*/
 	intr_set_level(old_level);
 }
 
-/* Returns the current thread's priority (which will be the max of donated_priority and priority. */
+/* Returns the priority of the current thread */
 int
 thread_get_priority(void)
 {
@@ -383,22 +384,20 @@ thread_get_priority(void)
 	return priority;
 }
 
-/* Compare the priority of the current thread and the first element in the ready list
-	and yield accordingly */
+/* Checks to see if the current thread is the highest priority.*/
 void priority_check(void) {
 	enum intr_level old_level = intr_disable();
 
+	/* If the highest priority thread (the first in the ready list) request access and is higher then yield.*/
 	if (!list_empty(&ready_list)) {
-		/* The first element of the ready list, which is the highest priority in the list */
 		struct thread *t = list_entry(list_front(&ready_list), struct thread, elem);
 
-		/* If the current thread's priority is smaller than the first element
-		   in the ready list's priority, then yield */
+		/* Yield to the higher process*/
 		if (thread_current()->priority < t->priority) {
 			thread_yield();
 		}
 	}
-
+	 /*Enable interrupts.*/
 	intr_set_level(old_level);
 }
 
@@ -522,10 +521,12 @@ init_thread(struct thread *t, const char *name, int priority)
 	list_push_back(&all_list, &t->allelem);
 	intr_set_level(old_level);
 
-	/* Initialize priority donation */
+	/* Initalizes priority donation. */
 	t->base_priority = priority;
-	t->wait_on_lock = NULL;
 	list_init(&t->donation_list);
+	/* Used to check if thread waits on a lock. */
+	t->wait_on_lock = NULL;
+
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -634,31 +635,32 @@ allocate_tid(void)
 	return tid;
 }
 
+/* Offset of `stack' member within `struct thread'.
+   Used by switch.S, which can't figure it out on its own. */
+uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
-
-/* Returns true if thread_a has a LONGER sleep time, returns false if thread
- * b has a longer sleep time. If used in a list orderering function, this
- * will sort the list from GREATEST to SMALLEST priority */
-bool
-priority_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED) {
+/* Returns true if the first element has a higher priority than the second (The first and second element are threads) */
+bool priority_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED) {
 	const struct thread* first = list_entry(elem1, struct thread, elem);
 	const struct thread* second = list_entry(elem2, struct thread, elem);
 	return first->priority > second->priority;
 }
 
-bool
-donation_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED) {
+/* Returns true if the first element has a higher priority than the second (The first and second element are donated threads) */
+bool donation_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED) {
 	const struct thread* first = list_entry(elem1, struct thread, donation_elem);
 	const struct thread* second = list_entry(elem2, struct thread, donation_elem);
 	return first->priority > second->priority;
 }
 
-void
-donation() {
+/* Donates the thread who wants the lock's priority to the owner of the lock if it is higher. */
+void donation() {
 	struct thread* t = thread_current();
 	struct lock* l = thread_current()->wait_on_lock;
 	int depth = 0;
-	while (l && depth < MAX_DEPTH) {
+
+	/*Goes through and checks if the lock exists and trasfers priority to the owner. Does this up to 8 times. */
+	while (l != NULL && depth < MAX_DEPTH) {
 		if (l->holder != NULL && l->holder->priority < t->priority) {
 			l->holder->priority = t->priority;
 			t = l->holder;
@@ -672,6 +674,3 @@ donation() {
 }
 
 
-/* Offset of `stack' member within `struct thread'.
-   Used by switch.S, which can't figure it out on its own. */
-uint32_t thread_stack_ofs = offsetof(struct thread, stack);

@@ -17,8 +17,8 @@ Basics of Semaphores: https://www.tutorialspoint.com/semaphores-in-operating-sys
 Learning how to Backtrace: http://courses.cs.vt.edu/~cs3204/spring2006/gback/debugging.html
 Understanding how the timer works: https://github.com/jhauserw3241/Pintos-520/blob/master/src/devices/timer.c
 Using Semaphores with Timer and other bugs in code: https://github.com/Hindol/pintos/blob/master/devices/timer.c
-Donations: https://github.com/rpwilliams/CIS520_Proj1
-Scheduling: https://github.com/Waqee/Pintos-Project-1
+Help with how to do Donations: https://github.com/rpwilliams/CIS520_Proj1
+Help with understanding Scheduling: https://github.com/Waqee/Pintos-Project-1
 
 
 
@@ -116,17 +116,18 @@ We have a list of all elements that can donate in the current thread.
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
-We order the list by priority so the front of the list is what wakes up first.
+We order all waiting lists by priority so the front of the list is what wakes up first.
 
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
-It checks to see if the lock has a holder and if not sets the current thread to that holder. If not it will check to see if the holders priority is less than the current and if so we will add it to the donor list. Then gives its priority to the lock holder so that thread will finish. 
+It checks to see if the lock has a holder and if not, sets the current thread to that holder. If there is a holder, it will check to see if the holders priority is less than the current and if so 
+we will add it to the donor list. Then gives its priority to the lock holder so that thread will finish. 
 
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
 
-We first disable interrupts and then move on the remove all donated threads in the donation_list. Then we restore the priority for the lock to what it was before donation. We then release the lock on the thread.
+We first disable interrupts and then remove all donated threads in the donation_list. Then we restore the priority for the lock to what it was before the donations. We then release the lock on the thread.
 
 ---- SYNCHRONIZATION ----
 
@@ -134,58 +135,13 @@ We first disable interrupts and then move on the remove all donated threads in t
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
-When two threads are trying to access a lock where the lock owner has a lower priority then they both donate at the same time. To stop this you would ccreate interrupts to stop one thread frmo donating before the other. 
+When two threads are trying to access a lock where the lock owner has a lower priority then they both donate at the same time. To stop this you would create interrupts to stop one thread from
+donating before the other. 
 
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
-The donation_list is sorted by highest priority to make it easy to see who gets highest priority first. 
-
-
-              ADVANCED SCHEDULER [EXTRA CREDIT]
-              =================================
-
----- DATA STRUCTURES ----
-
->> C1: Copy here the declaration of each new or changed `struct' or
->> `struct' member, global or static variable, `typedef', or
->> enumeration.  Identify the purpose of each in 25 words or less.
-
----- ALGORITHMS ----
-
->> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
->> has a recent_cpu value of 0.  Fill in the table below showing the
->> scheduling decision and the priority and recent_cpu values for each
->> thread after each given number of timer ticks:
-
-timer  recent_cpu    priority   thread
-ticks   A   B   C   A   B   C   to run
------  --  --  --  --  --  --   ------
- 0
- 4
- 8
-12
-16
-20
-24
-28
-32
-36
-
->> C3: Did any ambiguities in the scheduler specification make values
->> in the table uncertain?  If so, what rule did you use to resolve
->> them?  Does this match the behavior of your scheduler?
-
->> C4: How is the way you divided the cost of scheduling between code
->> inside and outside interrupt context likely to affect performance?
-
----- RATIONALE ----
-
->> C5: Briefly critique your design, pointing out advantages and
->> disadvantages in your design choices.  If you were to have extra
->> time to work on this part of the project, how might you choose to
->> refine or improve your design?
-
-
+The donation_list is sorted by highest priority to make it easy to see who gets highest priority first. By taking into consideration priorties it makes more important processes run first instead of 
+ones that are less important. 

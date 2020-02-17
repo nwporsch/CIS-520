@@ -109,14 +109,14 @@ struct thread
 
 	/* Priority Scheduling data START */
 
-	struct list donation_list;		  /* Threads that have donated to this threaad*/
+	struct list donation_list;		  /* Threads that have donated to this thread */
 	/*my stuff*/
 
 
-	struct list_elem donation_elem;
+	struct list_elem donation_elem;  /* The type of element used to help with donation list*/
 
-	/* The lock currently trying to be acquired by the thread */
-	struct lock* wait_on_lock;
+	
+	struct lock* wait_on_lock;		/*The lock the thread is waiting on*/
 	/* Shared between thread.c and synch.c. */
 
 	/* The thread's semaphore, owned by threads/synch.h */
