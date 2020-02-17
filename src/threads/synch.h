@@ -37,16 +37,15 @@ struct condition
 	struct list waiters;        /* List of waiting threads. */
 };
 
-bool cond_order(const struct list_elem* a, const struct list_elem* b, void *aux);
-
+bool cond_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux);
 void cond_init(struct condition *);
 void cond_wait(struct condition *, struct lock *);
 void cond_signal(struct condition *, struct lock *);
 void cond_broadcast(struct condition *, struct lock *);
 
 
-void change_to_base_priority(struct lock *); /*Returns a thread to its original base priority */
-void remove_donor_threads(struct lock *); /* Removes threads in the donated list*/
+void change_to_base_priority(struct lock *); /*Sets to original priority */
+void remove_donor_threads(struct lock *); /* Takes out donors.*/
 
 /* Optimization barrier.
    The compiler will not reorder operations across an

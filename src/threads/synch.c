@@ -61,8 +61,6 @@ sema_down(struct semaphore *sema)
 	old_level = intr_disable();
 	while (sema->value == 0)
 	{
-		/* Ensure that sema_waiters gets sorted properly with donated priorities, not
-			regular priorities. */
 		donation();
 
 		list_push_back(&sema->waiters, &thread_current()->elem);
@@ -111,7 +109,7 @@ sema_up(struct semaphore *sema)
 
 	old_level = intr_disable();
 	if (!list_empty(&sema->waiters)) {
-		/* Ensure all of the threads waiting on the semaphore should be sorted by priority, not time */
+
 		list_sort(&sema->waiters, priority_order, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 			struct thread, elem));
@@ -119,9 +117,8 @@ sema_up(struct semaphore *sema)
 
 	sema->value++;
 	
-	/* If running in an interrupt context, current thread execution will be lost  */
+
 	if (!intr_context()) {
-		/* Checks that sema_up release the HIGHEST priority waking thread first, not the oldest */
 		priority_check();
 	}
 	
@@ -205,8 +202,6 @@ lock_acquire(struct lock *lock)
 	enum intr_level old_level = intr_disable();
 	struct thread * temp = thread_current();
 
-
-	/* If the lock already has a holder, add the current thread to the list of waiting threads */
 	if (lock->holder != NULL) {
 		temp->wait_on_lock = lock;
 		list_insert_ordered(&lock->holder->donation_list, &temp->donation_elem, donation_order, NULL);
@@ -215,7 +210,7 @@ lock_acquire(struct lock *lock)
 	sema_down(&lock->semaphore);
 	lock->holder = temp;
 
-	/* Indicate we are no longer waiting on that lock */
+
 	temp->wait_on_lock = NULL;
 
 	intr_set_level(old_level);
@@ -252,7 +247,7 @@ lock_release(struct lock *lock)
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
 
-	/* Remove all the threads waiting on the lock currently being released from the donation list */
+
 	enum intr_level old_level = intr_disable();
 
 	remove_donor_threads(lock);
@@ -343,6 +338,7 @@ cond_signal(struct condition *cond, struct lock *lock UNUSED)
 	ASSERT(lock_held_by_current_thread(lock));
 
 	if (!list_empty(&cond->waiters)) {
+		/*Sorted the condition list*/
 		list_sort(&cond->waiters, cond_order, NULL);
 		sema_up(&list_entry(list_pop_front(&cond->waiters),
 			struct semaphore_elem, elem)->semaphore);
@@ -365,20 +361,22 @@ cond_broadcast(struct condition *cond, struct lock *lock)
 }
 
 /*
-  Returns true if thread a has a higher priority than thread b
+  Orders the elements in the semaphores and thread
 */
 bool
-cond_order(const struct list_elem* a, const struct list_elem* b, void *aux UNUSED) {
-	struct semaphore_elem *sema_a = list_entry(a, struct semaphore_elem, elem);
-	struct semaphore_elem *sema_b = list_entry(b, struct semaphore_elem, elem);
-	struct thread *thread_a = list_entry(list_front(&sema_a->semaphore.waiters), struct thread, elem);
-	struct thread *thread_b = list_entry(list_front(&sema_b->semaphore.waiters), struct thread, elem);
+cond_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED) {
+	struct semaphore_elem *sfirst = list_entry(elem1, struct semaphore_elem, elem);
+	struct semaphore_elem *ssecond = list_entry(elem2, struct semaphore_elem, elem);
+	struct thread *first = list_entry(list_front(&sfirst->semaphore.waiters), struct thread, elem);
+	struct thread *second = list_entry(list_front(&ssecond->semaphore.waiters), struct thread, elem);
 
-	return thread_a->priority > thread_b->priority;
+	return first->priority > second->priority;
 }
 
 /*
-  When the lock has been released, remove every thread with that lock from its list
+  Gets the beginning of the donation list and while that does not equal the end element of the donation list,
+  we get the highest_priority and the next element after the beginning element. We then check if the highest-priority's lock is the current lock.
+  If it is we remove the beginning element from the list and break. If not we move onto the net element.
 */
 void
 remove_donor_threads(struct lock *lock) {
@@ -397,8 +395,8 @@ remove_donor_threads(struct lock *lock) {
 }
 
 /*
-  Restores the threads priority to its initial priority OR the highest priority
-	left in its donation list
+  set the current lock's holder's priority to be the original priority it heald. Then if the donation_list for that lock in not null,
+  then we get the highest_priority of that donation_list. If that is bigger than the locks' owners' priority then we set the max equal to it.
 */
 void
 change_to_base_priority(struct lock *lock) {
