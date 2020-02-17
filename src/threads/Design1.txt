@@ -94,10 +94,10 @@ control when threads sleep.
 >> enumeration.  Identify the purpose of each in 25 words or less.
  
  struct list donation_list;
- List of all elements that are donated for this thread.
+ List of all elements that are donated for a thread.
  
  struct list_elem donation_elem;
- A single element in the donation list. Usually used as the front element.
+ A single element in the donation list. A single donation.
  
  struct lock* wait_on_lock;
  The lock the current thread is waiting on.
