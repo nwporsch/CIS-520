@@ -302,7 +302,6 @@ void check_sleeping_threads(int64_t ticks)
 	intr_set_level(old_level);
 }
 
-/*Checks to see which of the threads are closer to waking up.*/
 bool compare_wakeups(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED) {
 	struct thread *first = list_entry(elem1, struct thread, sleepelem);
 	struct thread *second = list_entry(elem2, struct thread, sleepelem);
