@@ -17,6 +17,8 @@ Basics of Semaphores: https://www.tutorialspoint.com/semaphores-in-operating-sys
 Learning how to Backtrace: http://courses.cs.vt.edu/~cs3204/spring2006/gback/debugging.html
 Understanding how the timer works: https://github.com/jhauserw3241/Pintos-520/blob/master/src/devices/timer.c
 Using Semaphores with Timer and other bugs in code: https://github.com/Hindol/pintos/blob/master/devices/timer.c
+Donations: https://github.com/rpwilliams/CIS520_Proj1
+Scheduling: https://github.com/Waqee/Pintos-Project-1
 
 
 
@@ -94,10 +96,12 @@ control when threads sleep.
 >> enumeration.  Identify the purpose of each in 25 words or less.
  
  struct list donation_list;
+
  List of all elements that are donated for this thread.
  
  struct list_elem donation_elem;
  A single element in the donation list. Usually used as the front element.
+
  
  struct lock* wait_on_lock;
  The lock the current thread is waiting on.
