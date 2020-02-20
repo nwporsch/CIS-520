@@ -5,7 +5,6 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
-
 /* States in a thread's life cycle. */
 enum thread_status
 {
@@ -83,21 +82,17 @@ struct thread
 	char name[16];                      /* Name (for debugging purposes). */
 	uint8_t *stack;                     /* Saved stack pointer. */
 	int priority;                       /* Priority. */
-	int base_priority;                  /* Initial Priority */
 	struct list_elem allelem;           /* List element for all threads list. */
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
 
-
-
-	/* Timer Thread data START */
+	/* Timer Thread Data Start */
 	struct semaphore semasleep;         /* A semaphore to tell the thread to sleep or wake up.*/
 	int64_t when_to_wakeup;             /* Keeps track of when a thread needs to wake up.*/
 	struct list_elem sleepelem;         /* Where the thread is located in sleeping_thread_list in timer.c */
-	/* Timer Thread data END   */
-
-
+	/* Timer Thread Data Stop */
+	
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint32_t *pagedir;                  /* Page directory. */
@@ -105,24 +100,6 @@ struct thread
 
 	/* Owned by thread.c. */
 	unsigned magic;                     /* Detects stack overflow. */
-
-
-	/* Priority Scheduling data START */
-
-	struct list donation_list;		  /* Threads that have donated to this threaad*/
-	/*my stuff*/
-
-
-	struct list_elem donation_elem;
-
-	/* The lock currently trying to be acquired by the thread */
-	struct lock* wait_on_lock;
-	/* Shared between thread.c and synch.c. */
-
-	/* The thread's semaphore, owned by threads/synch.h */
-	struct semaphore timer_sema;
-
-	/* Priority Scheduling data END */
 };
 
 /* If false (default), use round-robin scheduler.
@@ -155,15 +132,10 @@ void thread_foreach(thread_action_func *, void *);
 
 int thread_get_priority(void);
 void thread_set_priority(int);
-bool ready_thread_highest_priority(void);
-void priority_check(void);
 
 int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
-void donation(void);
-bool priority_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED);
-bool donation_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED);
 #endif /* threads/thread.h */

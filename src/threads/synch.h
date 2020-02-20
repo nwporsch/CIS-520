@@ -24,7 +24,6 @@ struct lock
 	struct semaphore semaphore; /* Binary semaphore controlling access. */
 };
 
-
 void lock_init(struct lock *);
 void lock_acquire(struct lock *);
 bool lock_try_acquire(struct lock *);
@@ -37,15 +36,10 @@ struct condition
 	struct list waiters;        /* List of waiting threads. */
 };
 
-bool cond_order(const struct list_elem* elem1, const struct list_elem* elem2, void *aux);
 void cond_init(struct condition *);
 void cond_wait(struct condition *, struct lock *);
 void cond_signal(struct condition *, struct lock *);
 void cond_broadcast(struct condition *, struct lock *);
-
-
-void change_to_base_priority(struct lock *); /*Sets to original priority */
-void remove_donor_threads(struct lock *); /* Takes out donors.*/
 
 /* Optimization barrier.
    The compiler will not reorder operations across an
