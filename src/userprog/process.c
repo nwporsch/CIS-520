@@ -17,6 +17,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "lib/string.h"
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -28,7 +30,26 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+	struct list * argumentList;
+	list_init(&argumentList);
+	char *rest = file_name;
+	char* token = "";
+
+
+	struct argument * tempArgument;
+	
+	/* Goes through the command passed by the user and breaks it up into arguments*/
+	while ((token = strtok_r(rest, " ", &rest))) {
+		tempArgument = malloc(sizeof(struct argument));
+		
+		tempArgument->nameOfArgument = token;
+		list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
+		printf("ARGUMENT: %s\n", tempArgument->nameOfArgument);
+	}
+
+
+	char *fn_copy;
+
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -437,7 +458,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12; /* Changed this according to Suggested Order of Implementation 3.2 */
       else
         palloc_free_page (kpage);
     }

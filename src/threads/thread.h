@@ -92,7 +92,7 @@ struct thread
 	int64_t when_to_wakeup;             /* Keeps track of when a thread needs to wake up.*/
 	struct list_elem sleepelem;         /* Where the thread is located in sleeping_thread_list in timer.c */
 	/* Timer Thread Data Stop */
-	
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint32_t *pagedir;                  /* Page directory. */
