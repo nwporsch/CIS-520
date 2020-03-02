@@ -16,8 +16,66 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("system call!\n");
+	int * esp = f->esp;
+
+	/*We need to check to see if the system call is below the correct PHYS_BASE */
+
+	int system_call = *esp;
+
+
+	/* The list of system calls are in lib/syscall-nr.h */
+	/*
+		SYS_HALT,                    Halt the operating system. 
+		SYS_EXIT,                    Terminate this process. 
+		SYS_EXEC,                    Start another process. 
+		SYS_WAIT,                    Wait for a child process to die. 
+		SYS_CREATE,                  Create a file. 
+		SYS_REMOVE,                  Delete a file. 
+		SYS_OPEN,                    Open a file. 
+		SYS_FILESIZE,                Obtain a file's size. 
+		SYS_READ,                    Read from a file. 
+		SYS_WRITE,                   Write to a file. 
+		SYS_SEEK,                    Change position in a file. 
+		SYS_TELL,                    Report current position in a file. 
+		SYS_CLOSE,                   Close a file. 
+	*/
+	switch (system_call)
+	{
+	case SYS_HALT:
+		break;
+	case SYS_EXIT:
+		//check_addr(esp + 1);
+		exit(*(esp + 1));
+		break;
+	case SYS_EXEC:
+		break;
+	case SYS_WAIT:
+		break;
+	case SYS_CREATE:
+		break;
+	case SYS_REMOVE:
+		break;
+	case SYS_OPEN:
+		break;
+	case SYS_FILESIZE:
+		break;
+	case SYS_READ:
+		break;
+	case SYS_WRITE:
+		break;
+	case SYS_SEEK:
+		break;
+	case SYS_TELL:
+		break;
+	case SYS_CLOSE:
+		break;
+	
+	}
+
+
+  /*printf ("system call!\n");
   thread_exit ();
+  */
 }
 
 void
@@ -48,18 +106,14 @@ exit(int status)
   }
 }
 
-
 /*
 pid_t
 exec(const char *cmd_line)
 {
 
 }
-
 */
-
-/*
-int
+/*int
 wait (pid_t pid)
 {
 
@@ -112,4 +166,19 @@ void
 close (int fd)
 {
 
+}
+
+/*Returns the number of bytes written to the system console.*/
+int
+write(int fd, const void * buffer, unsigned length) {
+
+	/*If fd == 1 then we print to the system console using putbuf*/
+	printf("MADE IT TO WRITE\n\n");
+	if (fd == 1) {
+		putbuf(buffer, length);
+		return length;
+	}
+
+
+	return 0;
 }

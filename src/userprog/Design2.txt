@@ -21,6 +21,9 @@ Nickalas Porsch nwporsch@ksu.edu
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
+Helped with understanding argument passing: https://github.com/ChristianJHughes/pintos-project2/blob/master/pintos/src/userprog/process.c
+Helped with understanding strtok_r: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+
 			   ARGUMENT PASSING
 			   ================
 
