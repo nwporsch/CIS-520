@@ -99,7 +99,20 @@ struct thread
 #endif
 
 	/* Owned by thread.c. */
-	unsigned magic;                     /* Detects stack overflow. */
+	unsigned magic;		/* Detects stack overflow. */
+
+	struct list children;
+	struct thread *parent;
+	int exit_error;
+	int tid_waiting_on;
+	struct semaphore child_lock;
+	struct child
+	{
+	  int tid;
+	  struct list_elem elem;
+	  int exit_error;
+	  bool used;
+	}
 };
 
 /* If false (default), use round-robin scheduler.
