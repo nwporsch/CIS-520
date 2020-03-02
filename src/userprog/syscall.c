@@ -24,6 +24,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 
 	/* The list of system calls are in lib/syscall-nr.h */
+	
 	/*
 		SYS_HALT,                    Halt the operating system. 
 		SYS_EXIT,                    Terminate this process. 
@@ -39,6 +40,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		SYS_TELL,                    Report current position in a file. 
 		SYS_CLOSE,                   Close a file. 
 	*/
+
 	switch (system_call)
 	{
 	case SYS_HALT:

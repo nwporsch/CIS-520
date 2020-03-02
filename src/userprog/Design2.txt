@@ -23,6 +23,7 @@ Nickalas Porsch nwporsch@ksu.edu
 
 Helped with understanding argument passing: https://github.com/ChristianJHughes/pintos-project2/blob/master/pintos/src/userprog/process.c
 Helped with understanding strtok_r: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
+Helped understand how to do syscall: https://github.com/Waqee/Pintos-Project-2
 
 			   ARGUMENT PASSING
 			   ================

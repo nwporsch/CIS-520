@@ -78,6 +78,9 @@ process_execute(const char *file_name)
 	tid = thread_create(process->nameOfArgument, PRI_DEFAULT, start_process, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
+
+	/*sema_down(&thread_current()->child_lock); I think this is failing because I haven't initialized child_lock*/
+
 	return tid;
 }
 
