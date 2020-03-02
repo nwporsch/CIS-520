@@ -48,14 +48,18 @@ exit(int status)
   }
 }
 
+
 /*
 pid_t
 exec(const char *cmd_line)
 {
 
 }
+
 */
-/*int
+
+/*
+int
 wait (pid_t pid)
 {
 

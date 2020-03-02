@@ -9,4 +9,4 @@ of 5,7 when calling test_sleep. In /src/tests/threads/tests.c I added in {"alarm
 the alarm-mega keyword is given.
 
 ## Project 1
-In this project we created the timer for pintos which allows threads to sleep at specfic intervale. The code is located in /src/devices/timer.c and /src/devices/timer.h. We also worked on priority scheduling which worked out for the most part, but did not pass all tests so we reverted back to Project 0 so we can continue working on Project 2. We also kept the implementation of timer becuase it will be used in later projects.
+In this project we created the timer for pintos which allows threads to sleep at specfic interval. The code is located in /src/devices/timer.c and /src/devices/timer.h. We also worked on priority scheduling which worked out for the most part, but did not pass all tests so we reverted back to Project 0 so we can continue working on Project 2. We also kept the implementation of timer becuase it will be used in later projects.
