@@ -22,7 +22,10 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void find_thread(struct thread *t, void * aux UNUSED);
 
+static struct thread * matchingTidThread;
+static 	tid_t currentTid;
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -50,7 +53,7 @@ process_execute(const char *file_name)
 
 	process->nameOfArgument = token;
 	list_push_back(&argumentList, &process->argelem);
-	printf("PROCESS: %s\n", process->nameOfArgument);
+/*	printf("PROCESS: %s\n", process->nameOfArgument); */
 
 	/* Goes through the command passed by the user and breaks it up into arguments*/
 	while ((token = strtok_r(rest, " ", &rest))) {
@@ -59,13 +62,14 @@ process_execute(const char *file_name)
 
 		tempArgument->nameOfArgument = token;
 		list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
-		printf("ARGUMENT: %s\n", tempArgument->nameOfArgument);
+	/*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
 	}
 
 
 	char *fn_copy;
 
 	tid_t tid;
+
 
 	/* Make a copy of FILE_NAME.
 	   Otherwise there's a race between the caller and load(). */
@@ -76,11 +80,16 @@ process_execute(const char *file_name)
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(process->nameOfArgument, PRI_DEFAULT, start_process, fn_copy);
-	if (tid == TID_ERROR)
+	if (tid == TID_ERROR) {
 		palloc_free_page(fn_copy);
-
-	/*sema_down(&thread_current()->child_lock); I think this is failing because I haven't initialized child_lock*/
-
+	}
+	else {
+		currentTid = tid;
+		/*Disable interrupts and look for thread with TID*/
+		enum intr_level old_level = intr_disable();
+		thread_foreach(*find_thread, NULL);
+		list_push_front(&thread_current()->children, &matchingTidThread->childelem);
+	}
 	return tid;
 }
 
@@ -501,4 +510,10 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+static void find_thread(struct thread *t, void * aux UNUSED) {
+	if (t->tid == currentTid) {
+		matchingTidThread = t;
+	}
 }

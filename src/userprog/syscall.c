@@ -92,11 +92,11 @@ exit(int status)
   struct list_elem *e;
   for(e = list_begin(&thread_current()->parent->children); e != list_end(&thread_current()->parent->children); e = list_next(e))
   {
-    struct child *c = list_entry (e, struct child, elem);
-    if(c->tid == thread_current()->tid)
+    struct thread *t = list_entry (e, struct thread, childelem);
+    if(t->tid == thread_current()->tid)
     {
-       c->used = true;
-       c->exit_error = status;
+       t->used = true;
+       t->exit_error = status;
     }
 
     thread_current()->exit_error = status;

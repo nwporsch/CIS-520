@@ -102,20 +102,22 @@ struct thread
 	unsigned magic;		/* Detects stack overflow. */
 
 	struct list children;
+	struct list_elem childelem;
 	struct thread *parent;
+	bool used;
 	int exit_error;
 	int tid_waiting_on;
 	struct semaphore child_lock;
 };
-
+/*
 struct child
 {
 	int tid;
-	struct list_elem elem;
-	int exit_error;
-	bool used;
-};
 
+	int exit_error;
+
+};
+*/
 
 
 /* If false (default), use round-robin scheduler.

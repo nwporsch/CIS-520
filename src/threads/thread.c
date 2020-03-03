@@ -179,12 +179,12 @@ thread_create(const char *name, int priority,
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
 	
-	struct child* c = malloc(sizeof(struct child));
-	c->tid = tid;
-	c->exit_error = t->exit_error;
-	c->used = false;
-
-	list_push_back (&running_thread()->children, &c->elem);
+	/*struct child* c = malloc(sizeof(struct child));
+	//c->tid = tid;
+	//c->exit_error = t->exit_error;
+	//c->used = false;
+	*/
+	list_push_back (&running_thread()->children, &t->childelem);
 
 	/* Stack frame for kernel_thread(). */
 	kf = alloc_frame(t, sizeof *kf);
