@@ -98,7 +98,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  if(cur->exit_code == -100 )
+  if(cur->exit_error == -100 )
     printf("%s: exit(%d)\n", cur->name, cur->exit_error);
 
 
