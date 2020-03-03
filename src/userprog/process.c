@@ -17,32 +17,81 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "lib/string.h"
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void find_thread(struct thread *t, void * aux UNUSED);
 
+static struct thread * matchingTidThread;
+static 	tid_t currentTid;
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute(const char *file_name)
 {
-  char *fn_copy;
-  tid_t tid;
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+	struct list argumentList;
+	list_init(&argumentList);
+	char *rest = file_name;
+	char* token = "";
 
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-  return tid;
+	struct argument * process;
+	struct argument * tempArgument;
+
+	/*First get the program name */
+
+	token = strtok_r(rest, " ", &rest);
+
+	if (token == NULL) { /*A program name was not provided. */
+		return -1;
+	}
+	process = malloc(sizeof(struct argument));
+
+	process->nameOfArgument = token;
+	list_push_back(&argumentList, &process->argelem);
+/*	printf("PROCESS: %s\n", process->nameOfArgument); */
+
+	/* Goes through the command passed by the user and breaks it up into arguments*/
+	while ((token = strtok_r(rest, " ", &rest))) {
+
+		tempArgument = malloc(sizeof(struct argument));
+
+		tempArgument->nameOfArgument = token;
+		list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
+	/*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
+	}
+
+
+	char *fn_copy;
+
+	tid_t tid;
+
+
+	/* Make a copy of FILE_NAME.
+	   Otherwise there's a race between the caller and load(). */
+	fn_copy = palloc_get_page(0);
+	if (fn_copy == NULL)
+		return TID_ERROR;
+	strlcpy(fn_copy, process->nameOfArgument, PGSIZE);
+
+	/* Create a new thread to execute FILE_NAME. */
+	tid = thread_create(process->nameOfArgument, PRI_DEFAULT, start_process, fn_copy);
+	if (tid == TID_ERROR) {
+		palloc_free_page(fn_copy);
+	}
+	else {
+		currentTid = tid;
+		/*Disable interrupts and look for thread with TID*/
+		enum intr_level old_level = intr_disable();
+		thread_foreach(*find_thread, NULL);
+		list_push_front(&thread_current()->children, &matchingTidThread->childelem);
+		intr_set_level(old_level);
+	}
+	return tid;
 }
 
 /* A thread function that loads a user process and starts it
@@ -199,7 +248,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack(void **esp, char **argv, int argc);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -218,6 +267,38 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
+  
+  int argc;
+  char * argv;
+  char *rest = file_name;
+  char* token = "";
+
+  struct argument * process;
+  struct argument * tempArgument;
+
+  /*First get the program name */
+
+  token = strtok_r(rest, " ", &rest);
+
+  if (token == NULL) { /*A program name was not provided. */
+	  return -1;
+  }
+  process = malloc(sizeof(struct argument));
+
+  process->nameOfArgument = token;
+//  list_push_back(&argumentList, &process->argelem);
+  /*	printf("PROCESS: %s\n", process->nameOfArgument); */
+
+	  /* Goes through the command passed by the user and breaks it up into arguments*/
+  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+
+	  tempArgument = malloc(sizeof(struct argument));
+	  argc++;
+	  tempArgument->nameOfArgument = token;
+	 // list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
+  /*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
+  }
+
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -306,7 +387,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, argv, argc))
     goto done;
 
   /* Start address. */
@@ -431,7 +512,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char **argv, int argc) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -441,8 +522,10 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
-      else
+        *esp = PHYS_BASE; /* Changed this according to Suggested Order of Implementation 3.2 */
+		
+	  
+	  else
         palloc_free_page (kpage);
     }
   return success;
@@ -466,4 +549,10 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+static void find_thread(struct thread *t, void * aux UNUSED) {
+	if (t->tid == currentTid) {
+		matchingTidThread = t;
+	}
 }
