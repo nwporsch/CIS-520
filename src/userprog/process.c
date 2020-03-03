@@ -89,6 +89,7 @@ process_execute(const char *file_name)
 		enum intr_level old_level = intr_disable();
 		thread_foreach(*find_thread, NULL);
 		list_push_front(&thread_current()->children, &matchingTidThread->childelem);
+		intr_set_level(old_level);
 	}
 	return tid;
 }
@@ -243,7 +244,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack(void **esp, char **argv, int argc);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -262,6 +263,38 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
+  
+  int argc;
+  char * argv;
+  char *rest = file_name;
+  char* token = "";
+
+  struct argument * process;
+  struct argument * tempArgument;
+
+  /*First get the program name */
+
+  token = strtok_r(rest, " ", &rest);
+
+  if (token == NULL) { /*A program name was not provided. */
+	  return -1;
+  }
+  process = malloc(sizeof(struct argument));
+
+  process->nameOfArgument = token;
+//  list_push_back(&argumentList, &process->argelem);
+  /*	printf("PROCESS: %s\n", process->nameOfArgument); */
+
+	  /* Goes through the command passed by the user and breaks it up into arguments*/
+  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+
+	  tempArgument = malloc(sizeof(struct argument));
+	  argc++;
+	  tempArgument->nameOfArgument = token;
+	 // list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
+  /*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
+  }
+
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -350,7 +383,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, argv, argc))
     goto done;
 
   /* Start address. */
@@ -475,7 +508,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char **argv, int argc) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -486,7 +519,9 @@ setup_stack (void **esp)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE; /* Changed this according to Suggested Order of Implementation 3.2 */
-      else
+		
+	  
+	  else
         palloc_free_page (kpage);
     }
   return success;
