@@ -108,6 +108,7 @@ struct thread
 	int exit_error;
 	int tid_waiting_on;
 	struct semaphore child_lock;
+
 };
 /*
 struct child
