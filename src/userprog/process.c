@@ -1,4 +1,4 @@
-#include "userprog/process.h"
+﻿#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -51,44 +51,51 @@ process_execute(const char *file_name)
 	}
 	process = malloc(sizeof(struct argument));
 
-	process->nameOfArgument = token;
+	process->name = token;
 	list_push_back(&argumentList, &process->argelem);
-/*	printf("PROCESS: %s\n", process->nameOfArgument); */
+
 
 	/* Goes through the command passed by the user and breaks it up into arguments*/
 	while ((token = strtok_r(rest, " ", &rest))) {
 
 		tempArgument = malloc(sizeof(struct argument));
 
-		tempArgument->nameOfArgument = token;
+		tempArgument->name = token;
 		list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
-	/*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
 	}
 
+	process->argc = (int) list_size(&argumentList);
+	process->argv =  (malloc((process->argc) * sizeof(char *)));
+
+	for (int i = 0; i < process->argc; i++) {
+		process->argv[i] = list_entry(list_pop_front(&argumentList), struct argument, argelem)->name;
+	}
 
 	char *fn_copy;
-
+	fn_copy = palloc_get_page(0);
+	strlcpy(fn_copy, file_name, PGSIZE);
 	tid_t tid;
 
 
 	/* Make a copy of FILE_NAME.
 	   Otherwise there's a race between the caller and load(). */
-	fn_copy = palloc_get_page(0);
+
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy(fn_copy, process->nameOfArgument, PGSIZE);
-
+	strlcpy(fn_copy, process->name, PGSIZE);
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(process->nameOfArgument, PRI_DEFAULT, start_process, fn_copy);
+	tid = thread_create(process->name, PRI_DEFAULT, start_process, process);
+
 	if (tid == TID_ERROR) {
 		palloc_free_page(fn_copy);
 	}
 	else {
 		currentTid = tid;
+
 		/*Disable interrupts and look for thread with TID*/
 		enum intr_level old_level = intr_disable();
 		thread_foreach(*find_thread, NULL);
-		list_push_front(&thread_current()->children, &matchingTidThread->childelem);
+		list_push_back(&thread_current()->children, &matchingTidThread->childelem);
 		intr_set_level(old_level);
 	}
 	return tid;
@@ -99,6 +106,7 @@ process_execute(const char *file_name)
 static void
 start_process (void *file_name_)
 {
+	printf("STARTING PROCESS\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -108,12 +116,18 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+
+
+
+
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -137,6 +151,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+	while (1); //As stated by section 3.2
   return -1;
 }
 
@@ -144,6 +159,7 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
+	printf("EXIT\n\n");
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
@@ -264,7 +280,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
   
-  int argc;
+  int argc = 0;
   char * argv;
   char *rest = file_name;
   char* token = "";
@@ -272,27 +288,29 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct argument * process;
   struct argument * tempArgument;
 
+  printf("Loading...\n\n\n");
   /*First get the program name */
 
   token = strtok_r(rest, " ", &rest);
 
-  if (token == NULL) { /*A program name was not provided. */
+  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+	  argc++;
+  }
+
+  if (argc == 0) { /*A program name was not provided. */
 	  return -1;
   }
   process = malloc(sizeof(struct argument));
 
-  process->nameOfArgument = token;
-//  list_push_back(&argumentList, &process->argelem);
-  /*	printf("PROCESS: %s\n", process->nameOfArgument); */
+  process->name = token;
 
-	  /* Goes through the command passed by the user and breaks it up into arguments*/
-  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+  rest = file_name;
 
-	  tempArgument = malloc(sizeof(struct argument));
-	  argc++;
-	  tempArgument->nameOfArgument = token;
-	 // list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
-  /*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
+  /* Goes through the command passed by the user and breaks it up into arguments*/
+  argv = malloc(argc * sizeof(char *));
+  for (int i = 0; (token = strtok_r(rest, " ", &rest)) && token != NULL; i++) {
+	  argv[i] = token;
+	  printf("ARGUMENT %s\n", argv[i]);
   }
 
 
@@ -406,6 +424,7 @@ static bool install_page (void *upage, void *kpage, bool writable);
 static bool
 validate_segment (const struct Elf32_Phdr *phdr, struct file *file) 
 {
+	printf("VALIDATE SEGMENT\n\n");
   /* p_offset and p_vaddr must have the same page offset. */
   if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK)) 
     return false; 
@@ -464,6 +483,7 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
+	printf("LOAD SEGMENT\n\n");
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
@@ -512,7 +532,7 @@ setup_stack (void **esp, char **argv, int argc)
 {
   uint8_t *kpage;
   bool success = false;
-
+  printf("MADE IT TO STACK\n");
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
