@@ -108,7 +108,16 @@ struct thread
 	int exit_error;
 	int tid_waiting_on;
 	struct semaphore child_lock;
+	struct list filede;
 
+};
+
+struct filedesu
+{
+	int num;
+	struct thread * parent;
+	struct file * f;
+	struct list_elem elem;
 };
 /*
 struct child

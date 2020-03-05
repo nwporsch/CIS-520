@@ -4,8 +4,11 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
+struct lock mem_lock;
 
 void
 syscall_init (void) 
@@ -125,50 +128,134 @@ wait (pid_t pid)
 bool
 create (const char *file, unsigned initial_size)
 {
-
+	return filesys_create(file, intial_size);
 }
 
 bool
 remove (const char *file)
 {
-
+	return filesys_remove(file) != NULL;
 }
 
 int
 open(const char *file)
 {
-
+	struct * filedesu fd;
+	fd = palloc_get_page(0);
+	
+	if(file==NULL)
+	{
+		return -1;
+	}
+	else
+	{
+		open = filesys_open(file);
+		fd->f = open;
+		fd->num= ++num;
+		fd->parent = thread_current();
+		list_push_back(&(thread_current()->fd), &(fd->elem));
+		return fd->num;
+	}
 }
 
 int
 filesize (int fd)
 {
-
+	struct list_elem * current_elem;
+	struct filedesu * filede;
+	if(!list_empty(&thread_current()->fd))
+	{
+		for (current_elem= list_front(&thread_current()->fd);; current_elem=list_next(current_elem))
+		{
+			filede = list_entry(current_elem, struct filedesu, elem);
+			if(filede->num == fd)
+			{
+				break;
+			}
+			else if(current_elem == list_tail(&thread_current()->filede) && (filede->num != fd))
+			{
+				return -1;
+			}
+		}
+		
+		return file_length(filede->file);
+	}
 }
 
 int
 read (int fd, void *buffer, unsigned size)
 {
+	struct list_elem * current_elem;
+	struct filedesu * filede;
+	
+	if(fd == 0)
+	{
+		for(int i = 0; i <= fd; i++)
+		{
+			buffer[i] = input_getc();
+			return i;
+		}
+	}
 
+	else if(!list_empty(&thread_current()->fd))
+	{
+		for (current_elem= list_front(&thread_current()->fd);; current_elem=list_next(current_elem))
+		{
+			filede = list_entry(current_elem, struct filedesu, elem);
+			if(filede->num == fd)
+			{
+				break;
+			}
+			else if(current_elem == list_tail(&thread_current()->filede) && (filede->num != fd))
+			{
+				return -1;
+			}
+		}
+		acquire_filesys_lock();
+		int offset = file_read(fd->file, buffer, size);
+		remove_filesys_lock();
+		
+		return offset;
+	}
 }
 
 void 
 seek (int fd, unsigned position)
 {
-
+	file_seek(fd, position);
 }
 
 unsigned
 tell (int fd)
 {
-
+	return file_tell(fd);
 }
 
 void
 close (int fd)
 {
-
-}
+	struct list_elem * current_elem;
+	struct filedesu * filede;
+	
+	if(list_empty(&thread_current()->filede)) return;
+	else{
+		for(current_elem=list_front(&thread_current()->filede); ; current_elem=list_next(current_elem))
+		{
+			filede = list_entry(current_elem, struct filedescriptor, elem);
+			if(filede->num == fd)
+			 break;
+			if(current_elem == list_tail(&thread_current()->filede) && (filede->num != fd))
+			{
+			  return;
+			}
+		}
+		if(thread_current()->tid == fd->master->tid) // check master thread.
+        {
+			file_close(filede->file);
+			list_remove(&(filde->elem));
+			palloc_free_page(filede);
+        }
+	}
 
 /*Returns the number of bytes written to the system console.*/
 int
