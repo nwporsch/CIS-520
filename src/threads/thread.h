@@ -108,6 +108,7 @@ struct thread
 	int exit_error;
 	int tid_waiting_on;
 	struct semaphore child_lock;
+
 };
 /*
 struct child
@@ -155,5 +156,9 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
+
+
+void acquire_file_lock(void);
+void release_file_lock(void);
 
 #endif /* threads/thread.h */

@@ -33,15 +33,34 @@ static 	tid_t currentTid;
 tid_t
 process_execute(const char *file_name)
 {
-
 	struct list argumentList;
 	list_init(&argumentList);
+	char fn_copy = NULL;
 	char *rest = file_name;
 	char* token = "";
-
 	struct argument * process;
 	struct argument * tempArgument;
+	tid_t tid;
 
+
+	printf("EXCUTING PROCESS\n\n");
+
+	/* Make a copy of FILE_NAME.
+	   Otherwise there's a race between the caller and load(). */
+
+	/* Sees if we can get a free page */
+	fn_copy = palloc_get_page(0);
+
+	if (fn_copy == NULL) {
+		return TID_ERROR;
+	}
+	printf("GOT PAGE\n");
+
+	/* Adding the program and args to the page */
+	strlcpy(fn_copy, file_name, PGSIZE);
+
+
+	printf("COPPIED\n");
 	/*First get the program name */
 
 	token = strtok_r(rest, " ", &rest);
@@ -67,36 +86,38 @@ process_execute(const char *file_name)
 	process->argc = (int) list_size(&argumentList);
 	process->argv =  (malloc((process->argc) * sizeof(char *)));
 
+
+	/* Adds each parameter in the argument list to the process' argv */
 	for (int i = 0; i < process->argc; i++) {
 		process->argv[i] = list_entry(list_pop_front(&argumentList), struct argument, argelem)->name;
 	}
 
-	char *fn_copy;
-	fn_copy = palloc_get_page(0);
-	strlcpy(fn_copy, file_name, PGSIZE);
-	tid_t tid;
-
-
-	/* Make a copy of FILE_NAME.
-	   Otherwise there's a race between the caller and load(). */
-
-	if (fn_copy == NULL)
-		return TID_ERROR;
-	strlcpy(fn_copy, process->name, PGSIZE);
 	/* Create a new thread to execute FILE_NAME. */
+	printf("CREATING\n");
 	tid = thread_create(process->name, PRI_DEFAULT, start_process, process);
 
 	if (tid == TID_ERROR) {
+		printf("ERROROROR\n\n\n");
 		palloc_free_page(fn_copy);
 	}
 	else {
-		currentTid = tid;
+		printf("PUTTING DOWN\n\n");
+		sema_down(&thread_current()->child_lock);
+
+		if (!thread_current()->used) {
+			return -1;
+		}
+
+//		currentTid = tid;
 
 		/*Disable interrupts and look for thread with TID*/
-		enum intr_level old_level = intr_disable();
+	/*	enum intr_level old_level = intr_disable();
 		thread_foreach(*find_thread, NULL);
 		list_push_back(&thread_current()->children, &matchingTidThread->childelem);
 		intr_set_level(old_level);
+		*/
+
+		
 	}
 	return tid;
 }
@@ -280,6 +301,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
   
+  acquire_file_lock();
+
   int argc = 0;
   char * argv;
   char *rest = file_name;
@@ -310,7 +333,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   argv = malloc(argc * sizeof(char *));
   for (int i = 0; (token = strtok_r(rest, " ", &rest)) && token != NULL; i++) {
 	  argv[i] = token;
-	  printf("ARGUMENT %s\n", argv[i]);
+	  printf("ARGUMENT %s\n", &argv[i]);
   }
 
 

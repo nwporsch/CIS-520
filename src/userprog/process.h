@@ -15,6 +15,4 @@ struct argument {
 	char** argv;
 };
 
-
-
 #endif /* userprog/process.h */
