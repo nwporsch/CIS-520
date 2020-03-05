@@ -128,7 +128,7 @@ wait (pid_t pid)
 bool
 create (const char *file, unsigned initial_size)
 {
-	return filesys_create(file, intial_size);
+	return filesys_create(file, initial_size);
 }
 
 bool
@@ -140,7 +140,8 @@ remove (const char *file)
 int
 open(const char *file)
 {
-	struct * filedesu fd;
+	struct file * open = NULL;
+	struct filedesu *fd;
 	fd = palloc_get_page(0);
 	
 	if(file==NULL)
@@ -151,9 +152,9 @@ open(const char *file)
 	{
 		open = filesys_open(file);
 		fd->f = open;
-		fd->num= ++num;
+		fd->num= fd->num + 1;
 		fd->parent = thread_current();
-		list_push_back(&(thread_current()->fd), &(fd->elem));
+		list_push_back(&(thread_current()->filede), &(fd->elem));
 		return fd->num;
 	}
 }
@@ -163,9 +164,9 @@ filesize (int fd)
 {
 	struct list_elem * current_elem;
 	struct filedesu * filede;
-	if(!list_empty(&thread_current()->fd))
+	if(!list_empty(&thread_current()->filede))
 	{
-		for (current_elem= list_front(&thread_current()->fd);; current_elem=list_next(current_elem))
+		for (current_elem= list_front(&thread_current()->filede);; current_elem=list_next(current_elem))
 		{
 			filede = list_entry(current_elem, struct filedesu, elem);
 			if(filede->num == fd)
@@ -178,8 +179,23 @@ filesize (int fd)
 			}
 		}
 		
-		return file_length(filede->file);
+		return file_length(filede->f);
 	}
+}
+
+bool 
+write_mem(unsigned char *addr, unsigned char byte)
+{
+  if(addr != NULL)
+  {
+    int error_code;
+
+    asm ("movl $1f, %0; movb %b2, %1; 1:"
+        : "=&a" (error_code), "=m" (*addr) : "q" (byte));
+    return error_code != -1;
+  }
+  else
+    exit(-1);
 }
 
 int
@@ -190,16 +206,16 @@ read (int fd, void *buffer, unsigned size)
 	
 	if(fd == 0)
 	{
-		for(int i = 0; i <= fd; i++)
+		for(int i = 0; i <(unsigned)size; i++)
 		{
-			buffer[i] = input_getc();
+			write_mem((unsigned char *)(buffer+i), input_getc());
 			return i;
 		}
 	}
 
-	else if(!list_empty(&thread_current()->fd))
+	else if(!list_empty(&thread_current()->filede))
 	{
-		for (current_elem= list_front(&thread_current()->fd);; current_elem=list_next(current_elem))
+		for (current_elem= list_front(&thread_current()->filede);; current_elem=list_next(current_elem))
 		{
 			filede = list_entry(current_elem, struct filedesu, elem);
 			if(filede->num == fd)
@@ -211,9 +227,9 @@ read (int fd, void *buffer, unsigned size)
 				return -1;
 			}
 		}
-		acquire_filesys_lock();
-		int offset = file_read(fd->file, buffer, size);
-		remove_filesys_lock();
+		lock_acquire(&mem_lock);
+		int offset = file_read(filede->f, buffer, size);
+		lock_release(&mem_lock);
 		
 		return offset;
 	}
@@ -241,7 +257,7 @@ close (int fd)
 	else{
 		for(current_elem=list_front(&thread_current()->filede); ; current_elem=list_next(current_elem))
 		{
-			filede = list_entry(current_elem, struct filedescriptor, elem);
+			filede = list_entry(current_elem, struct filedesu, elem);
 			if(filede->num == fd)
 			 break;
 			if(current_elem == list_tail(&thread_current()->filede) && (filede->num != fd))
@@ -249,13 +265,14 @@ close (int fd)
 			  return;
 			}
 		}
-		if(thread_current()->tid == fd->master->tid) // check master thread.
+		if(thread_current()->tid == filede->parent->tid) // check master thread.
         {
-			file_close(filede->file);
-			list_remove(&(filde->elem));
+			file_close(filede->f);
+			list_remove(&(filede->elem));
 			palloc_free_page(filede);
         }
 	}
+}
 
 /*Returns the number of bytes written to the system console.*/
 int
