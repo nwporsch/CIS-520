@@ -6,18 +6,22 @@
 #include "threads/init.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "lib/user/syscall.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 struct lock mem_lock;
+static void* check_addr(const void *vaddr);
 
 void
 syscall_init (void) 
 {
+	printf("I hate pintos\n\n\n\n");
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f) 
 {
 	int * esp = f->esp;
 
@@ -43,7 +47,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		SYS_TELL,                    Report current position in a file. 
 		SYS_CLOSE,                   Close a file. 
 	*/
-
+	printf("HEnlo0000000000000\n\n\n\n");
 	switch (system_call)
 	{
 	case SYS_HALT:
@@ -53,6 +57,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 		exit(*(esp + 1));
 		break;
 	case SYS_EXEC:
+		check_addr(esp+1);
+		check_addr(*(esp+1));
+		f->eax = exec(*(esp+1));
 		break;
 	case SYS_WAIT:
 		break;
@@ -111,19 +118,39 @@ exit(int status)
   }
 }
 
-/*
+
 pid_t
 exec(const char *cmd_line)
 {
+	printf("HEnlo\n\n");
+	lock_acquire(&mem_lock);
+	char * fn = malloc(strlen(cmd_line)+1);
+	strlcpy(fn, cmd_line, strlen (cmd_line) + 1);
+	
+	char *save_ptr;
+	fn = strtok_r (fn, " ", &save_ptr);
+	
+	struct file* f = filesys_open (fn);
 
+	if (f == NULL)
+	{
+		lock_release(&mem_lock);
+		return -1;
+	}
+	else
+	{
+		file_close (f);
+		lock_release(&mem_lock);
+		return process_execute (cmd_line);
+	}
 }
-*/
-/*int
+
+int
 wait (pid_t pid)
 {
-
+	return process_wait (pid);
 }
-*/
+
 
 bool
 create (const char *file, unsigned initial_size)
@@ -181,6 +208,24 @@ filesize (int fd)
 		
 		return file_length(filede->f);
 	}
+}
+
+
+void* 
+check_addr (const void *vaddr)
+{
+	if (!is_user_vaddr (vaddr))
+	{
+		exit (-1);
+		return 0;
+	}
+	void *ptr = pagedir_get_page (thread_current ()->pagedir, vaddr);
+	if (!ptr)
+	{
+		exit(-1);
+		return 0;
+	}
+	return ptr;
 }
 
 bool 
