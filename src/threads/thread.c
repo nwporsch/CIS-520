@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -36,6 +37,10 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+/* lock on files */
+struct lock filesys_lock;
+struct semaphore *child_lock;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame
@@ -70,6 +75,8 @@ static void *alloc_frame(struct thread *, size_t size);
 static void schedule(void);
 void thread_schedule_tail(struct thread *prev);
 static tid_t allocate_tid(void);
+void acquire_file_lock(void);
+void release_file_lock(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -89,8 +96,7 @@ thread_init(void)
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&all_list);
-	printf("INITIALIZE CHILDREN\n\n\n");
-
+	lock_init(&filesys_lock);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -179,13 +185,15 @@ thread_create(const char *name, int priority,
 	/* Initialize thread. */
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
-	
-	struct child* c = malloc(sizeof(struct child));
+
+	/* Initialize child. */
+	struct child *c = malloc(sizeof(*c));
 	c->tid = tid;
 	c->exit_error = t->exit_error;
-	c->used = false;
+	c->used = false;//added
+	list_push_back(&running_thread()->children, &c->childelem);
 
-	list_push_back (&running_thread()->children, &c->elem);
+	enum intr_level old_level = intr_disable();
 
 	/* Stack frame for kernel_thread(). */
 	kf = alloc_frame(t, sizeof *kf);
@@ -201,6 +209,8 @@ thread_create(const char *name, int priority,
 	sf = alloc_frame(t, sizeof *sf);
 	sf->eip = switch_entry;
 	sf->ebp = 0;
+
+	intr_set_level(old_level);
 
 	/* Add to run queue. */
 	thread_unblock(t);
@@ -284,9 +294,20 @@ thread_exit(void)
 {
 	ASSERT(!intr_context());
 
+	//sometimes come here with lock and that's not good
+	if (lock_held_by_current_thread(&filesys_lock))
+		release_file_lock();
+
 #ifdef USERPROG
 	process_exit();
 #endif
+
+	while (!list_empty(&thread_current()->children))
+	{
+		struct proc_file *f = list_entry(list_pop_front(&thread_current()->children),
+			struct child, childelem);
+		free(f);
+	}
 
 	/* Remove thread from all threads list, set our status to dying,
 	   and schedule another process.  That process will destroy us
@@ -462,7 +483,16 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->stack = (uint8_t *)t + PGSIZE;
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
 	list_init(&t->children);
+	t->parent = running_thread();
+	list_init(&t->all_files);
+	t->fd_count = 2;
+	t->exit_error = -100;
+	sema_init(&t->child_lock, 0);
+	t->tid_waiting_on = 0;
+	t->current_file = NULL;
+
 	old_level = intr_disable();
 	list_push_back(&all_list, &t->allelem);
 	intr_set_level(old_level);
@@ -572,6 +602,18 @@ allocate_tid(void)
 	lock_release(&tid_lock);
 
 	return tid;
+}
+
+void
+acquire_file_lock(void)
+{
+	lock_acquire(&filesys_lock);
+}
+
+void
+release_file_lock(void)
+{
+	lock_release(&filesys_lock);
 }
 
 /* Offset of `stack' member within `struct thread'.

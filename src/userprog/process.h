@@ -10,10 +10,9 @@ void process_activate(void);
 
 struct argument {
 	struct list_elem argelem;
-	char* nameOfArgument;
-
+	char* name;
+	int argc;
+	char** argv;
 };
-
-
 
 #endif /* userprog/process.h */
