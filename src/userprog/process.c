@@ -1,4 +1,4 @@
-#include "userprog/process.h"
+﻿#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -34,15 +34,35 @@ static 	tid_t currentTid;
 tid_t
 process_execute(const char *file_name)
 {
-
 	struct list argumentList;
 	list_init(&argumentList);
-	char *rest = file_name;
-	char* token = "";
-
+	char * fn_copy; /* KEEP THIS A POINTER*/
+	char * rest = file_name;
+	char * token = "";
 	struct argument * process;
 	struct argument * tempArgument;
+	tid_t tid;
 
+
+	printf("EXCUTING PROCESS:  %s\n\n", file_name);
+
+	/* Make a copy of FILE_NAME.
+	   Otherwise there's a race between the caller and load(). */
+
+	/* Sees if we can get a free page */
+
+	fn_copy = palloc_get_page(0);
+	if (fn_copy == NULL) {
+
+		return TID_ERROR;
+	}
+	printf("GOT PAGE\n");
+
+	/* Adding the program and args to the page */
+	strlcpy(fn_copy, file_name, PGSIZE);
+
+
+	printf("COPPIED\n");
 	/*First get the program name */
 
 	token = strtok_r(rest, " ", &rest);
@@ -51,46 +71,58 @@ process_execute(const char *file_name)
 		return -1;
 	}
 	process = malloc(sizeof(struct argument));
+	process->name = malloc(strlen(token) + 1);
+	strlcpy(process->name, token, strlen(token) + 1);
 
-	process->nameOfArgument = token;
+	printf("%s\n\n", process->name);
+
 	list_push_back(&argumentList, &process->argelem);
-/*	printf("PROCESS: %s\n", process->nameOfArgument); */
+
 
 	/* Goes through the command passed by the user and breaks it up into arguments*/
 	while ((token = strtok_r(rest, " ", &rest))) {
 
 		tempArgument = malloc(sizeof(struct argument));
 
-		tempArgument->nameOfArgument = token;
+		tempArgument->name = token;
 		list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
-	/*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
 	}
 
-
-	char *fn_copy;
-
-	tid_t tid;
+	process->argc = (int) list_size(&argumentList);
+	process->argv =  (malloc((process->argc) * sizeof(char *)));
 
 
-	/* Make a copy of FILE_NAME.
-	   Otherwise there's a race between the caller and load(). */
-	fn_copy = palloc_get_page(0);
-	if (fn_copy == NULL)
-		return TID_ERROR;
-	strlcpy(fn_copy, process->nameOfArgument, PGSIZE);
+	/* Adds each parameter in the argument list to the process' argv */
+	for (int i = 0; i < process->argc; i++) {
+		process->argv[i] = list_entry(list_pop_front(&argumentList), struct argument, argelem)->name;
+	}
 
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(process->nameOfArgument, PRI_DEFAULT, start_process, fn_copy);
+	printf("CREATING\n");
+	tid = thread_create(process->name, PRI_DEFAULT, start_process, process);
+
 	if (tid == TID_ERROR) {
+		printf("ERROROROR\n\n\n");
 		palloc_free_page(fn_copy);
 	}
 	else {
-		currentTid = tid;
+		printf("PUTTING DOWN\n\n");
+		sema_down(&thread_current()->child_lock);
+
+		if (!thread_current()->success) {
+			return -1;
+		}
+
+//		currentTid = tid;
+
 		/*Disable interrupts and look for thread with TID*/
-		enum intr_level old_level = intr_disable();
+	/*	enum intr_level old_level = intr_disable();
 		thread_foreach(*find_thread, NULL);
-		list_push_front(&thread_current()->children, &matchingTidThread->childelem);
+		list_push_back(&thread_current()->children, &matchingTidThread->childelem);
 		intr_set_level(old_level);
+		*/
+
+		
 	}
 	return tid;
 }
@@ -100,21 +132,45 @@ process_execute(const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  char *file_name = file_name_;
+	printf("STARTING PROCESS\n");
+  char * rest =file_name_;
+  char * token;
+  struct argument * process;
   struct intr_frame if_;
   bool success;
+
+  printf("REST: %s\n\n", rest);
+
+  token = strtok_r(rest, " ", &rest);
+  printf("TOKEN: %s\n", token);
+  if (token == NULL) { /*A program name was not provided. */
+	  return -1;
+  }
+  process = malloc(sizeof(struct argument));
+  process->name = malloc(strlen(token) + 1);
+
+  strlcpy(process->name, token, strlen(token) + 1);
+
+  printf("%s\n\n", process->name);
+  
+  
+  printf("FILE: %s\n", process->name);
+
+
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+  success = load (process->name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (process->name);
   if (!success) 
     thread_exit ();
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -138,6 +194,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+	while (1); //As stated by section 3.2
   return -1;
 }
 
@@ -145,12 +202,9 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
+	printf("EXIT\n\n");
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
-  if(cur->exit_error == -100 )
-    printf("%s: exit(%d)\n", cur->name, cur->exit_error);
-
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -177,7 +231,6 @@ void
 process_activate (void)
 {
   struct thread *t = thread_current ();
-
   /* Activate thread's page tables. */
   pagedir_activate (t->pagedir);
 
@@ -268,36 +321,55 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-  
-  int argc;
+    int argc = 0;
   char * argv;
   char *rest = file_name;
   char* token = "";
-
+  char * fn_copy = NULL;
   struct argument * process;
   struct argument * tempArgument;
 
+  printf("LOADING PROCESS\n");
+  acquire_file_lock();
+
+  /* Create new page directory*/
+  t->pagedir = pagedir_create();
+  if (t->pagedir == NULL) {
+	  goto done;
+  }
+
+  /* Activate the new address space. */
+  process_activate();
+
+
+  printf("TESTS...\n\n\n");
+
+  printf("\n\n\n\n\n\n\nFILE NAME: %s\n\n\n", file_name);
+  /* Open the file system */
+  file = filesys_open(fn_copy);
+  printf("OPENED FILE\n");
   /*First get the program name */
 
-  token = strtok_r(rest, " ", &rest);
+ /* token = strtok_r(rest, " ", &rest);
 
-  if (token == NULL) { /*A program name was not provided. */
-	  return -1;
+  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+	  argc++;
+  }
+
+  if (argc == 0) { /*A program name was not provided. */
+/*	  return -1;
   }
   process = malloc(sizeof(struct argument));
 
-  process->nameOfArgument = token;
-//  list_push_back(&argumentList, &process->argelem);
-  /*	printf("PROCESS: %s\n", process->nameOfArgument); */
+  process->name = token;
 
-	  /* Goes through the command passed by the user and breaks it up into arguments*/
-  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+  rest = file_name;
 
-	  tempArgument = malloc(sizeof(struct argument));
-	  argc++;
-	  tempArgument->nameOfArgument = token;
-	 // list_push_back(&argumentList, &tempArgument->argelem); /*Adds the arguments to the list of arguments*/
-  /*	printf("ARGUMENT: %s\n", tempArgument->nameOfArgument); */
+  /* Goes through the command passed by the user and breaks it up into arguments*/
+ /* argv = malloc(argc * sizeof(char *));
+  for (int i = 0; (token = strtok_r(rest, " ", &rest)) && token != NULL; i++) {
+	  argv[i] = token;
+	  printf("ARGUMENT %s\n", &argv[i]);
   }
 
 
@@ -305,8 +377,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
+  printf("ACTIVATING PROCESS\n");
   process_activate ();
-
+  printf("OPENED FILE\n");
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -327,7 +400,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", file_name);
       goto done; 
     }
-
+  printf("READ FILE\n");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
@@ -387,6 +460,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+  printf("SETTING UP THE SACK\n");
   /* Set up stack. */
   if (!setup_stack (esp, argv, argc))
     goto done;
@@ -396,9 +470,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
+  /* Stops the file from being written to. */
+  file_deny_write(file);
+
+  /*Set current_file to show the current thread is accessing the file. */
+  thread_current()->current_file = file;
+
+
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  file_close (fn_copy);
+  release_file_lock();
   return success;
 }
 
@@ -411,6 +493,7 @@ static bool install_page (void *upage, void *kpage, bool writable);
 static bool
 validate_segment (const struct Elf32_Phdr *phdr, struct file *file) 
 {
+	printf("VALIDATE SEGMENT\n\n");
   /* p_offset and p_vaddr must have the same page offset. */
   if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK)) 
     return false; 
@@ -469,6 +552,7 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
+	printf("LOAD SEGMENT\n\n");
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
@@ -517,7 +601,7 @@ setup_stack (void **esp, char **argv, int argc)
 {
   uint8_t *kpage;
   bool success = false;
-
+  printf("MADE IT TO STACK\n");
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {

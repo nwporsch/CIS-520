@@ -100,13 +100,13 @@ exit(int status)
     {
        t->used = true;
        t->exit_error = status;
+
     }
 
     thread_current()->exit_error = status;
 
     if(thread_current()->parent->tid_waiting_on == thread_current()->tid)
       sema_up (&thread_current()->parent->child_lock);
-    
     thread_exit ();
   }
 }
@@ -239,17 +239,20 @@ void
 seek (int fd, unsigned position)
 {
 	file_seek(fd, position);
+
 }
 
 unsigned
 tell (int fd)
 {
 	return file_tell(fd);
+
 }
 
 void
 close (int fd)
 {
+
 	struct list_elem * current_elem;
 	struct filedesu * filede;
 	
@@ -272,6 +275,7 @@ close (int fd)
 			palloc_free_page(filede);
         }
 	}
+
 }
 
 /*Returns the number of bytes written to the system console.*/
@@ -287,4 +291,5 @@ write(int fd, const void * buffer, unsigned length) {
 
 
 	return 0;
+
 }

@@ -4,7 +4,9 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "threads/synch.h"
+#include <threads/synch.h>
+#include <kernel/list.h>
+
 /* States in a thread's life cycle. */
 enum thread_status
 {
@@ -83,15 +85,16 @@ struct thread
 	uint8_t *stack;                     /* Saved stack pointer. */
 	int priority;                       /* Priority. */
 	struct list_elem allelem;           /* List element for all threads list. */
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
-
-	/* Timer Thread Data Start */
+		/* Timer Thread Data Start */
 	struct semaphore semasleep;         /* A semaphore to tell the thread to sleep or wake up.*/
 	int64_t when_to_wakeup;             /* Keeps track of when a thread needs to wake up.*/
 	struct list_elem sleepelem;         /* Where the thread is located in sleeping_thread_list in timer.c */
 	/* Timer Thread Data Stop */
+
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -99,15 +102,17 @@ struct thread
 #endif
 
 	/* Owned by thread.c. */
-	unsigned magic;		/* Detects stack overflow. */
+	unsigned magic;                     /* Detects stack overflow. */
 
-	struct list children;
-	struct list_elem childelem;
-	struct thread *parent;
-	bool used;
 	int exit_error;
 	int tid_waiting_on;
+	int fd_count;
+	struct thread *parent;
+	struct list children;
+	struct list all_files;
+	struct file *current_file;
 	struct semaphore child_lock;
+	bool success;
 	struct list filede;
 
 };
@@ -119,16 +124,14 @@ struct filedesu
 	struct file * f;
 	struct list_elem elem;
 };
-/*
+
 struct child
 {
 	int tid;
-
+	struct list_elem childelem;
 	int exit_error;
-
+	bool used;
 };
-*/
-
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
