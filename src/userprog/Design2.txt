@@ -8,9 +8,9 @@
 
 >> Fill in the names of your group members.
 
-Aidan Javier apjavier@ksu.edu
-Caleb Logan catiel@ksu.edu
-Nickalas Porsch nwporsch@ksu.edu
+Aidan Javier    <apjavier@ksu.edu>
+Caleb Logan     <catiel@ksu.edu>
+Nickalas Porsch <nwporsch@ksu.edu>
 
 ---- PRELIMINARIES ----
 
@@ -25,6 +25,8 @@ Helped with understanding argument passing: https://github.com/ChristianJHughes/
 Helped with understanding strtok_r: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
 Helped understand how to do syscall: https://github.com/Waqee/Pintos-Project-2
 Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos-520-Proj2/
+Helped in general: https://github.com/rida300/520Pinto
+Helped in general: https://github.com/kinux98/pintos-project-2
 
 			   ARGUMENT PASSING
 			   ================
@@ -35,19 +37,27 @@ Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct child
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+Because we need to make sure we know the size of the buffer.  strtok() can buffer overflow and access memory that it shouldn't have access to.
+
 >> A4: In Pintos, the kernel separates commands into an executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+The Unix approach 
 
 			     SYSTEM CALLS
 			     ============
@@ -58,14 +68,20 @@ Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+
+
 
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+
+
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -74,8 +90,12 @@ Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -91,12 +111,16 @@ Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -105,16 +129,24 @@ Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+
 
 			   SURVEY QUESTIONS
 			   ================
@@ -128,14 +160,23 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
+
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
 
+
+
 >> Any other comments?
+

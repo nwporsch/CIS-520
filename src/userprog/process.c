@@ -316,7 +316,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack(void **esp, char **argv, int argc);
+static bool setup_stack(void **esp, char *file_name);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -386,16 +386,7 @@ load(const char *file_name, void(**eip) (void), void **esp)
 	rest = file_name;
 
 
-	if (token == NULL) {
-		return -1;
-	}
-	else {
-		while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
-			argc++;
-		}
 
-	}
-	printf("ARGC: %d\n", argc);
 	
   /* Goes through the command passed by the user and breaks it up into arguments*/
 //  argv =  malloc(argc * sizeof(char *));
@@ -404,9 +395,7 @@ load(const char *file_name, void(**eip) (void), void **esp)
 	  argv[i] = token;
 	  printf("ARGUMENT %s\n", &argv[i]);
   }
-  
-
-  printf("ARGV: %s\n", argv);
+ 
 
   /* Allocate and activate page directory. */
 /*  t->pagedir = pagedir_create ();
@@ -497,7 +486,7 @@ load(const char *file_name, void(**eip) (void), void **esp)
   printf("SETTING UP THE STACK\n");
   printf("HERE IS WHAT YOU PASS: ARGC %d ARGV ", argc);
   /* Set up stack. */
-  if (!setup_stack (esp, argv, argc))
+  if (!setup_stack (esp,file_name))
     goto done;
 
   /* Start address. */
@@ -632,32 +621,49 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, char **argv, int argc) 
+setup_stack (void **esp, char *file_name) 
 {
-	printf("ARGUMENT 1: %s", argv[0]);
+	printf("DONT\n");
+	int argc;
 
-
-
+	char ** argv;
+	char * rest = file_name;
+	char * token;
   uint8_t *kpage;
   bool success = false;
   int i;
   printf("MADE IT TO STACK\n");
+
+  if (file_name == NULL) {
+	  return -1;
+  }
+  else {
+	  while ((token = strtok_r(rest, " ", &rest)) && token != NULL) {
+		  argc++;
+	  }
+
+  }
+
+  printf("ARGC: %d\n", argc);
+  rest = file_name;
+
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE; /* Changed this according to Suggested Order of Implementation 3.2 */
-		
-	  
+  if (kpage != NULL)
+  {
+	  success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+	  if (success)
+		  *esp = PHYS_BASE; /* Changed this according to Suggested Order of Implementation 3.2 */
+
+
 	  else
-        palloc_free_page (kpage);
-    }
+		  palloc_free_page(kpage);
+  }
+  argv = malloc(argc * sizeof(char*));
 
- /* char **plzwork = malloc(argc * sizeof(char*));
+  char **plzwork = malloc(argc * sizeof(char*));
 
-  for (token = strtok_r(file_name, " ", &save_ptr), i = 0; token != NULL;
-	  token = strtok_r(NULL, " ", &save_ptr), i++)
+  for (token = strtok_r(file_name, " ", &rest), i = 0; token != NULL;
+	  token = strtok_r(NULL, " ", &rest), i++)
   {
 	  plzwork[i] = malloc(strlen(token) + 1);
 	  memcpy(plzwork[i], token, strlen(token) + 1);
@@ -668,11 +674,12 @@ setup_stack (void **esp, char **argv, int argc)
   {
 	  *esp -= strlen(plzwork[i]) + 1;
 	  argv[i] = *esp;
+	  printf("ARGUMENT %s\n", argv[i]);
 	  memcpy(*esp, plzwork[i], strlen(plzwork[i]) + 1);
   }
-*/
-  argv[argc] = 0;
 
+  argv[argc] = 0;
+  printf("AFTER THIS\n");
   //word pad if needed
   int pad = (size_t)*esp % 4;
   if (pad)
