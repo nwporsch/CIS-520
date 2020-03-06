@@ -92,18 +92,18 @@ exit(int status)
   struct list_elem *e;
   for(e = list_begin(&thread_current()->parent->children); e != list_end(&thread_current()->parent->children); e = list_next(e))
   {
-    struct thread *t = list_entry (e, struct thread, childelem);
-    if(t->tid == thread_current()->tid)
+	  printf("SYSCALL EXIT CHILD\n");
+    struct child *c = list_entry (e, struct child, childelem);
+    if(c->tid == thread_current()->tid)
     {
-       t->used = true;
-       t->exit_error = status;
+       c->used = true;
+       c->exit_error = status;
     }
 
     thread_current()->exit_error = status;
 
     if(thread_current()->parent->tid_waiting_on == thread_current()->tid)
       sema_up (&thread_current()->parent->child_lock);
-    
     thread_exit ();
   }
 }
