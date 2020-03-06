@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/string.h"
+#include "threads/synch.h"
 
 
 static thread_func start_process NO_RETURN;

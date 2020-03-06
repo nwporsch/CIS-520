@@ -113,6 +113,16 @@ struct thread
 	struct file *current_file;
 	struct semaphore child_lock;
 	bool success;
+	struct list filede;
+
+};
+
+struct filedesu
+{
+	int num;
+	struct thread * parent;
+	struct file * f;
+	struct list_elem elem;
 };
 
 struct child
