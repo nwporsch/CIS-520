@@ -171,7 +171,8 @@ takes an interrupt frame and kills the process before dumping its virtual memory
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
-
+When we try to open a new file, we make a copy of it's name and check to see if it's NULL.
+//NOT COMPLETED QUESTION
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -180,19 +181,30 @@ takes an interrupt frame and kills the process before dumping its virtual memory
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
-
+If P calls wait(C) before C exits, P blocks itself until C exits which will unblock P.
+Once C exits, the tread and it's data is freed by P which allows it to run.  
+If P calls wait(C) after C exits, C should have already updated it's status in P by 
+exiting, so P should have access to C's data and be able to free it if it isn't free.
+Whenever a process is killed we make sure to dump it's virtual memory space before it exits.
+If P exits before C exits, P should update C's parent thread so that it points to main. If P
+exits after C exits, it shouldn't have to worry about what C as it's information should have 
+been dumped by C, allowing P to dump itself.
 
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
-
+File descriptors allow for quick and reliable searching for needed information. 
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
-
+File descriptors can be placed in a list working them is rather simple, mapping
+between the file descriptor struct and a file isn't very complex and makes the 
+code more reader friendly. This helped streamline debugging somewhat.  A disadvantage
+with file descriptors is that if a thread has too many files open, searching the list
+for the right file descriptor will slow the process down.
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
