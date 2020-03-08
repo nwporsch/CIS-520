@@ -1,3 +1,4 @@
+
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
@@ -89,7 +90,7 @@ struct thread
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
-		/* Timer Thread Data Start */
+    /* Timer Thread Data Start */
 	struct semaphore semasleep;         /* A semaphore to tell the thread to sleep or wake up.*/
 	int64_t when_to_wakeup;             /* Keeps track of when a thread needs to wake up.*/
 	struct list_elem sleepelem;         /* Where the thread is located in sleeping_thread_list in timer.c */
