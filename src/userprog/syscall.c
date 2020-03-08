@@ -232,11 +232,11 @@ open (const char *file)
     	return -1;
     else
     {
-		struct file *cur_file = list_search(&thread_current()->all_files, file);
+		struct file *cur_file = filesys_open(file);
     	struct proc_file *proc_file = malloc (sizeof (*proc_file));
     	proc_file->ptr = cur_file;
-    	proc_file->fd = thread_current ()->fd_count;
-    	thread_current ()->fd_count++;
+    	proc_file->fd = thread_current()->fd_count;
+    	thread_current()->fd_count++;
     	list_push_back (&thread_current ()->all_files, &proc_file->elem);
     	return proc_file->fd;
     }
