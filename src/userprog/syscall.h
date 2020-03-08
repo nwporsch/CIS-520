@@ -5,6 +5,6 @@ void syscall_init(void);
 
 bool sys_create(const char *, unsigned);
 bool sys_remove(const char *);
-unsigned sys_tell(int fd);
+unsigned tell(int fd);
 
 #endif /* userprog/syscall.h */
