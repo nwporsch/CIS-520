@@ -298,7 +298,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp,int argc, const char *file_name);
+static bool setup_stack (void **esp, int argc, const char *file_name);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -315,11 +315,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
-  bool success = false;
+  bool success = false; /* Used to see if loading was successful */
+
   int i;
-  char * rest;
-  char *processName = malloc(strlen(file_name) + 1);
- acquire_file_lock();
+  char * rest; /* Used to help with strtoken */
+  char *processName = malloc(strlen(file_name) + 1); /* Used to hold onto to the process name from file_name */
+
+  acquire_file_lock();
  
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -331,6 +333,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   strlcpy (processName, file_name, strlen(file_name)+1);
   processName = strtok_r (processName, " ", &rest);
   
+
+  /* Open executable file. */
   file = filesys_open (processName); /*Based off the process name the file associated with the process name is opened. */
   if (file == NULL) 
     {
@@ -422,7 +426,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   }
 
 
-  //free(rest);
    free(copy_of_filename);
 
   /* Set up stack. */
@@ -432,17 +435,20 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
-  success = true;
+  /* Setting up the stack was successful*/
+  success = true; 
   
-  //added
+  /* We stop other processes from writing to the file. */
   file_deny_write (file);
   thread_current ()->current_file = file;
-  //ends added
+
+
  done:
   /* We arrive here whether the load is successful or not. */
    free (processName);//needed to free the allocated memory
    free(token);
    release_file_lock();//need to release the lock on filesystem
+
    return success;
 }
 
@@ -562,6 +568,9 @@ setup_stack (void **esp, int argc, const char *file_name)
   uint8_t *kpage;
   bool success = false;
   int i = 0;
+  char *token, *rest;
+  char **argv = malloc(argc * sizeof(char*));
+  char **reverse = malloc(argc * sizeof(char*));
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -573,32 +582,29 @@ setup_stack (void **esp, int argc, const char *file_name)
       palloc_free_page (kpage);
   }
 
+   
+  /*Reverses the arguments in file_name which will be used to place into argv. */
 
-  char *token, *save_ptr;
-
-	
-  char **argv = malloc (argc * sizeof (char*));
-  char **plzwork = malloc (argc * sizeof (char*));
-	
-	//have to reverse tokens from file_name
-  for (token = strtok_r (file_name, " ", &save_ptr), i = 0; token != NULL;
-    	 token = strtok_r (NULL, " ", &save_ptr), i++)
+  for (token = strtok_r (file_name, " ", &rest), i = 0; token != NULL;
+    	 token = strtok_r (NULL, " ", &rest), i++)
   {
-    plzwork[i] = malloc (strlen (token) + 1);
-    memcpy (plzwork[i], token, strlen (token) + 1);
+    reverse[i] = malloc (strlen (token) + 1);
+    memcpy (reverse[i], token, strlen (token) + 1);
   }
   
-  //reverse the file_name tokens
+  /* Now we add arguments into argv */
   for (i = argc-1; i >= 0; i--)
   {
-  	*esp -= strlen (plzwork[i]) + 1;
+  	*esp -= strlen (reverse[i]) + 1;
   	argv[i] = *esp;
-  	memcpy (*esp, plzwork[i], strlen (plzwork[i]) + 1);
+  	memcpy (*esp, reverse[i], strlen (reverse[i]) + 1);
   } 
 
-	argv[argc] = 0;
+  /* The final element in argv we add the NULL character to show that argv is finished. */
+	argv[argc] = NULL;
 	
-	//word pad if needed
+  /* Checks to see if padding is needed.*/
+
   int pad = (size_t) *esp % 4;
   if (pad)
   {
@@ -606,29 +612,30 @@ setup_stack (void **esp, int argc, const char *file_name)
   	memcpy (*esp, &argv[argc], pad);
   }
 
-	//argument addresses
+  /*Copies the addresses of the arguments into the stack */
   for (i = argc; i >= 0; i--)
   {
     *esp -= sizeof (char*);
     memcpy (*esp, &argv[i], sizeof (char*));
   }
 
-  //push argv
+  /* Pushes argv to the stack */
+
   token = *esp;
   *esp -= sizeof (char**);
   memcpy (*esp, &token, sizeof (char**));
 	
-	//push argc
+  /* Pushes argc to the stack */
   *esp -= sizeof (int);
   memcpy (*esp, &argc, sizeof (int));
 	
-	//add void address return
+  /* Pushes NULL onto the stack to stop the process from going into other parts of memory. */
   *esp -= sizeof (void*);
-  memcpy (*esp, &argv[argc], sizeof (void*));
+  memcpy (*esp, &argv[argc], sizeof (NULL));
 	
   free (argv);
-  free (plzwork);
-  //ends added
+  free (reverse);
+
   return success;
 }
 
