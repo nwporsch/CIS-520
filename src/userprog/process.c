@@ -20,8 +20,6 @@
 #include "threads/vaddr.h"
 #include "syscall.h"
 
-//Included the header file syscall
-
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -34,43 +32,42 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy, *save_ptr, *f_name;//2 additional char pointers
-  tid_t tid;
+	char *process_page; 
+	char *rest; /* Used to help with string tokenizer to get process_name */
+	char *process_name;
+	tid_t tid;
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  /* Gets a page for the process and if that is possible, pass the file info to the page. */
+  process_page = palloc_get_page (0);
+  if (process_page == NULL) {
+	  return TID_ERROR;
+  }
+  strlcpy (process_page, file_name, PGSIZE);
 
-	/* Parsing arguments 
-  1. used malloc to allocate memory of the same size as the file_name    which includes filename and the parameter names 
-  2.used strlcpy to copy it to memory
-  3. used strtok_r to tokenize the raw filename, used space as the       delimeter
-  */ 
-  f_name = malloc (strlen (file_name) + 1);
-  strlcpy (f_name, file_name, strlen (file_name) + 1);
-  f_name = strtok_r (f_name, " ", &save_ptr);
+  /* Gathers the process name from file_name and executes the new process with the new page gathered for the process.*/
+  process_name = malloc (strlen (file_name) + 1);
+  strlcpy (process_name, file_name, strlen (file_name) + 1);
+  process_name = strtok_r (process_name, " ", &rest);
 	
-  /*Create a new thread to execute FILE_NAME. 
-   1. passed in the refined f_name as the first parameter and the         entire filename with arguments using fn_copy
-   2. freed memory that was allocated for f_name as it is no longer       needed
-  */
-  tid = thread_create (f_name, PRI_DEFAULT, start_process, fn_copy);
+  /* Creates the thread for the new process and with the new page created */
+  tid = thread_create (process_name, PRI_DEFAULT, start_process, process_page);
   
-  free (f_name);
-   
+
+  /* If the thread failed to be created then we free the page we found that was free. */
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (process_page); 
   
-  /*decrement the sema value of the child */
+  /* Any child processes are placed to sleep. */
   sema_down (&thread_current ()->child_lock);
   
-  //Added the success field to the thread struct to confirm execution    of the child process. If it was unable to execute successfully, the tid_t returned is -1
-  if (!thread_current ()->success)
-    return -1;
-  
+  free(process_name);
+ 
+  /* If any part of the process creation failed then return -1. 
+  We use success to show that we have finished setting up the process.*/
+  if (!thread_current()->success) {
+	  return -1;
+  }
+
   return tid;
 }
 
@@ -88,23 +85,25 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (file_name, &if_.eip, &if_.esp); /*We check to see if the process was sucessfully loaded. */
 	
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  /*In the case that load was unsuccessful, the success field of its       parent thread is set to false. Value of the semaphore on the child     process is incremented and the thread is exitted
-    If it was successful, this impacts the parent process's success and    the child's lock is incremented 
-  */
-  
-  
-  if (!success) 
+
+  /* No matter if we have a success or fail we will free the page to allow others to have access. */
+  palloc_free_page(file_name);
+
+  /* We then pass if we have passed or failed to the parent */
+  if (success == false) 
   {
+
     thread_current ()->parent->success = false;
+
+	/* If we fail we exit the thread and update the child lock to allow other children access. */
     sema_up (&thread_current ()->parent->child_lock);
     thread_exit ();
   }
   else
   {
+	  /* We finished successfully so we allow the other children access and set the parent to true. */
     thread_current ()->parent->success = true;
     sema_up (&thread_current ()->parent->child_lock);
   }
@@ -121,7 +120,7 @@ start_process (void *file_name_)
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
-   it was terminated by the kernel (i.e. killed due to an
+   it was terminated by the kernel (i.temporary_element. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
    child of the calling process, or if process_wait() has already
    been successfully called for the given TID, returns -1
@@ -133,37 +132,47 @@ int
 process_wait (tid_t child_tid) 
 {
 
-  /*
-  Iterates over the children's list of the current thread, creates a child out of each list entry, checks its tid against the tid being passed in. If there is a match, the child and the list_elem are stored in local variables which would otherwise be null. Then there is a check for making sure the 2 variables were not null, if tehy were, returns -1. Otherwise, update the current thread's tid_waiting_on field. If the child was not used, its semaphore is decremented. The error variable is assigned the exit_error of the child process and this variable is returned.
-  */
-  struct list_elem *e;
+  struct list_elem *temporary_element;
 
-  struct child *ch = NULL;
+  struct child *child = NULL;
 
-  struct list_elem *e1 = NULL;
+  struct list_elem *child_element = NULL;
+  
+  int error;
 
-  for (e = list_begin (&thread_current ()->children); 
-       e != list_end (&thread_current ()->children);
-       e = list_next (e))
+
+  /* Goes through the list of children of the parent thread to see if the child really exists. */
+  for (temporary_element = list_begin (&thread_current ()->children); 
+       temporary_element != list_end (&thread_current ()->children);
+       temporary_element = list_next (temporary_element))
    {
-     struct child *f = list_entry (e, struct child, childelem);
-     if(f->tid == child_tid)
+     struct child *temporary_child = list_entry (temporary_element, struct child, childelem);
+
+	 
+     if(temporary_child->tid == child_tid)
      {
-       ch = f;
-       e1 = e;
+
+       child = temporary_child;
+       child_element = temporary_element;
      }
    }
     
-  if(!ch || !e1)
+  /* If we did not find a child matching the child_tid and child_element we exit with -1 (Error occurred). */
+  if(child == NULL || child_element == NULL)
     return -1;
 
-  thread_current ()->tid_waiting_on = ch->tid;
+  /* We found the correct child and we set the parent to wait on the child. */
+  thread_current ()->tid_waiting_on = child->tid;
 
-  if(!ch->used)
+  /* We allow the child access to the child_lock */
+  if(child->used == false)
     sema_down (&thread_current ()->child_lock);
 
-  int error = ch->exit_error;
-  list_remove (e1);
+  /* Check to see if the child exited correctly*/
+ error = child->exit_error;
+  
+  /* The child has finished and be removed from the parent's list of children. */
+  list_remove (child_element);
   
   return error;
 }
@@ -177,19 +186,20 @@ process_exit (void)
   uint32_t *pd;
 
 
-/*Added:
-  If the exit_error is -100, called exit passing in -1.
-  Acquires lock so the current thread has exclusive access to the filesystem. Calls file_close by passing in the file currently in use by the current thread. Then closes all other files this thread was using and releases the lock on the file system. 
-*/ 
-if(cur->exit_error == -100)
-      exit (-1);
+/*If the exit error is -100 we return with an error. */
+  if (cur->exit_error == -100) {
+	  exit(-1);
+  }
 
+  /*Print out the error code and name of the process. */
     printf ("%s: exit(%d)\n", cur->name, cur->exit_error);
 
+	/* The process has ended so we need to free the files associated with the process. */
     acquire_file_lock ();
     file_close (thread_current ()->current_file);
     close_all_files (&thread_current ()->all_files);
     release_file_lock ();
+
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -307,7 +317,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-
+  char * rest;
+  char *processName = malloc(strlen(file_name) + 1);
  acquire_file_lock();
  
   /* Allocate and activate page directory. */
@@ -316,19 +327,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-
-  //Added: creating a char pointer, allocates memory for another char pointer which will store the tokenized version of the filename
-  /* Open executable file. */
-  char * save_ptr;
-  char *fn_cp = malloc (strlen (file_name)+1);
-  strlcpy (fn_cp, file_name, strlen(file_name)+1);
-  fn_cp = strtok_r (fn_cp, " ", &save_ptr);
+  /* Obtains the process name from the command arguments given in file_name*/
+  strlcpy (processName, file_name, strlen(file_name)+1);
+  processName = strtok_r (processName, " ", &rest);
   
-  //end added
-  file = filesys_open (fn_cp);
+  file = filesys_open (processName); /*Based off the process name the file associated with the process name is opened. */
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", fn_cp);
+      printf ("load: %s: open failed\n", processName);
       goto done; 
     }
 
@@ -341,7 +347,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", fn_cp);
+      printf ("load: %s: error loading executable\n", processName);
       goto done; 
     }
 
@@ -406,15 +412,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Determine number of arguments */
   int argc = 0;
-  char * rest;
   char * token;
-  char *copy = malloc(strlen(file_name) + 1);
-  strlcpy(copy, file_name, strlen(file_name) + 1);
-  for (token = strtok_r(copy, " ", &rest); token != NULL;
+  char *copy_of_filename = malloc(strlen(file_name) + 1);
+  strlcpy(copy_of_filename, file_name, strlen(file_name) + 1);
+  for (token = strtok_r(copy_of_filename, " ", &rest); token != NULL;
 	  token = strtok_r(NULL, " ", &rest))
   {
 	  argc++;
   }
+
+
+  //free(rest);
+   free(copy_of_filename);
 
   /* Set up stack. */
   if (!setup_stack (esp, argc, file_name))
@@ -431,7 +440,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   //ends added
  done:
   /* We arrive here whether the load is successful or not. */
-   free (fn_cp);//needed to free the allocated memory
+   free (processName);//needed to free the allocated memory
+   free(token);
    release_file_lock();//need to release the lock on filesystem
    return success;
 }
