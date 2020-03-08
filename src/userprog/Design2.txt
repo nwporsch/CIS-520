@@ -45,7 +45,10 @@ None.
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+Firstly we copy the entire filename and arguments using palloc to avoid a race condition between the caller and load(). Then we malloc the filename and all parameters, copy it to memory with strlcpy, and tokenize the filename and the parameters using strtoken_r to separate them. Then we create the new thread and execute it with just the file name as the first argument and the entire filename as the last. //Unneeded?
 
+We map a zero page at the top of virtual memory and check to see if the page we actually want is less than PHYS_BASE,
+this prevents us from overflowing the stack page. If that passes we tokenize the filename and the parameters in order to separate them with strtok_r and then loop through the tokens and place them in an array in reverse order that is a copy of argv then copy that array back into argv. Now that argv has the arguments in the right order we go through and push argv, argc, and a void* return address.
 
 ---- RATIONALE ----
 
@@ -58,7 +61,11 @@ Because we need to make sure we know the size of the buffer.  strtok() can buffe
 >> separation.  Identify at least two advantages of the Unix approach.
 
 By allowing the shell to separate the arguments, it allows the kernel system code to be simpler since it can pass the job off to shell instead of doing it itself.  
-Also 
+
+Also it adds efficiency because the shell would only be handling one executable and arguments, the system has
+to manage all of the running threads, and if a new process needs to be executed that is very large then the entire
+system has to slow down in order to prepare the arguments and the stack.
+
 			     SYSTEM CALLS
 			     ============
 
@@ -123,12 +130,18 @@ process ends or the file is closed, the file descriptors are removed as well.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
-EXCUSE ME WHAT?!?!?!?
+If a full page of data is copied into the kernel then that means the data either lies
+entirely in one page or overlaps into another, meaning at least one and at most two inspections
+must be made to the page table. If there is only two bytes then the number is the same, at least
+once at most twice. As long as there is more than one byte of data, there is a chance not all of 
+the data can fit into one full page.
+The only possible way you could improve this would be to have a full page of data be the 
+entirity memory, which is clearly not a good idea.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
-
+Look through the childrens list of the thread that is waiting, after we find the child that we've been waiting on we check to see whether it or current thread is null, if not then we update the thread that we're waiting on to be the child. Then we check if the child has been used, if not we decrement it's semaphore and return the error given by the childs exit error.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -144,7 +157,12 @@ EXCUSE ME WHAT?!?!?!?
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+Having a file that handles exceptions and errors entirely is a good way to avoid obscuring the code, because
+it separates the actual functionality from the problems that come from said functionality. The easiest way 
+to ensure that the resources are free is to dump the frame associated with the process before you exit.
 
+We use the files exception.c and exception.h for error handling and disposal of processes. The kill method
+takes an interrupt frame and kills the process before dumping its virtual memory and exiting the thread.
 
 ---- SYNCHRONIZATION ----
 
