@@ -1,5 +1,5 @@
 		           +--------------------------+
-				   |         CIS 520          |
+		           |         CIS 520          |
 		           | PROJECT 2: USER PROGRAMS |
 		           |     DESIGN DOCUMENT      |
 		           +--------------------------+
@@ -25,8 +25,8 @@ Helped with understanding argument passing: https://github.com/ChristianJHughes/
 Helped with understanding strtok_r: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
 Helped understand how to do syscall: https://github.com/Waqee/Pintos-Project-2
 Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos-520-Proj2/
-Helped in general: https://github.com/rida300/520Pinto
-Helped in general: https://github.com/kinux98/pintos-project-2
+Helped with understanding syscall: https://github.com/rida300/520Pinto
+Helped with understanding filedescriptors: https://github.com/kinux98/pintos-project-2
 
 			   ARGUMENT PASSING
 			   ================
@@ -37,7 +37,7 @@ Helped in general: https://github.com/kinux98/pintos-project-2
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-struct child
+None.
 
 ---- ALGORITHMS ----
 
@@ -57,8 +57,8 @@ Because we need to make sure we know the size of the buffer.  strtok() can buffe
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
 
-The Unix approach 
-
+By allowing the shell to separate the arguments, it allows the kernel system code to be simpler since it can pass the job off to shell instead of doing it itself.  
+Also 
 			     SYSTEM CALLS
 			     ============
 
@@ -68,13 +68,46 @@ The Unix approach
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct thread
+{
+	int exit_error; //the number associated with an error
+	int tid_waiting_on; //the id of the thread this thread is waiting for to run
+	int fd_count; //the number of filedescriptors
+	struct thread *parent; //the thread that this thread is a child of
+	struct list children; //list of children
+	struct list all_files; //list of files
+	struct file *current_file; //the current open file
+	struct semaphore child_lock; //the lock for children
+	bool success; //whether or not the file was successfully opened
+	struct list filede; //list of filedescriptors
+};
+Holds information that pertains to user threads.
 
+struct child
+{
+	int tid; //the threads id
+	struct list_elem childelem; //the next child in the list
+	int exit_error; //the number associated with an error
+	bool used; //whether or not the child completed
+};
+Holds information that pertains to threads that are children of other threads.
+
+struct filedesu
+{
+	int num; //the file descriptors number
+	struct thread * parent; //the parent thread
+	struct file * f; //the file that needs to be opened
+	struct list_elem elem; //
+};
+Holds information that pertains to open files.
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
-
+Whenever a new file is opened a file descriptor is created that is associated with
+that file.  All file descriptors are unique within a single process, so when the 
+process ends or the file is closed, the file descriptors are removed as well.  
 
 ---- ALGORITHMS ----
 
@@ -90,7 +123,7 @@ The Unix approach
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
-
+EXCUSE ME WHAT?!?!?!?
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
@@ -146,7 +179,7 @@ The Unix approach
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
 
-
+We did not change the identity mapping.
 
 			   SURVEY QUESTIONS
 			   ================
