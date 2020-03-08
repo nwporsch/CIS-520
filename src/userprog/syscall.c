@@ -25,7 +25,7 @@ struct proc_file
 void
 syscall_init(void)
 {
-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall")
+  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 // includes a switch statement with all possible cases which call the relevant functions accordingly. 
 static void
@@ -33,7 +33,8 @@ syscall_handler(struct intr_frame *f)
 {
 	int *ptr = f->esp;
 	check_addr (ptr);
-	
+	int fd;
+	unsigned size;
 	int sys_call = *ptr;
   switch (sys_call)
   {
@@ -85,20 +86,20 @@ syscall_handler(struct intr_frame *f)
 		case SYS_FILESIZE:
 			check_addr (ptr+1);
 			acquire_filesys_lock ();
-			f->eax = filesize(int fd);
+			f->eax = filesize(fd);
 			release_filesys_lock ();
 		break;
 		
 		case SYS_READ:
 			check_addr (ptr+3);
 			check_addr (*(ptr+2));
-			f->eax = read (f->fd, ptr, unsigned size);
+			f->eax = read(f->fd, ptr, size);
 		break;
 		
 		case SYS_WRITE:
 			check_addr (ptr+3);
 			check_addr (*(ptr+2));
-			f->eax = write (f->fd, ptr,unsigned size);
+			f->eax = write (f->fd, ptr, size);
 		break;
 		
 		case SYS_SEEK:
@@ -118,7 +119,7 @@ syscall_handler(struct intr_frame *f)
 		case SYS_CLOSE:
 			check_addr (ptr+1);
 			acquire_filesys_lock ();
-			close (&thread_current ()->all_files, *(ptr+1));
+			close (thread_current->fd);
 			release_filesys_lock ();
 		break;
 		
