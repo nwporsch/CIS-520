@@ -9,10 +9,10 @@
 #include "lib/user/syscall.h"
 #include "filesys/filesys.h"
 
-static void syscall_handler (struct intr_frame *);
+static void syscall_handler(struct intr_frame *);
 //added
-void* check_addr (const void*);
-struct proc_file* list_search (struct list *, int);
+void* check_addr(const void*);
+struct proc_file* list_search(struct list *, int);
 
 //added struct to represent a process file
 struct proc_file
@@ -23,13 +23,13 @@ struct proc_file
 };
 
 void
-syscall_init (void) 
+syscall_init(void)
 {
-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall")
 }
 // includes a switch statement with all possible cases which call the relevant functions accordingly. 
 static void
-syscall_handler (struct intr_frame *f) 
+syscall_handler(struct intr_frame *f)
 {
 	int *ptr = f->esp;
 	check_addr (ptr);
@@ -134,25 +134,6 @@ void
 halt (void) 
 {
     shutdown_power_off ();
-}
-
-
-/*
-Iterates over the siblings list of current thread, creates a child for each list entry, checks this child's tid against the current thread's. If matched, it sets the used field of the child to true and its exit_errror to the int that was passed into the method.
- If the loop was exited without finding a match, it sets the current thread's error_code to the status. 
- Finally, if the current thread's parent is still waiting on it, the semaphore is incremented 
-*/
-void 
-exit (int status)
-{
-	struct list_elem *e;
-	
-	for (e = list_begin (&thread_current ()->parent->children); 
-			 e != list_end (&thread_current ()->parent->children);
-		   e = list_next (e))
-	{
-		struct child *c = list_entry (e, struct child, elem);
-		if(c->tid == thread_current ()->tid)
 		{
 			c->used = true;
 			c->exit_error = status;
@@ -202,6 +183,7 @@ int
 wait (pid_t pid)
 {
     return process_wait (pid);
+
 }
 
 /*
@@ -211,6 +193,7 @@ bool
 create (const char *file, unsigned initial_size)
 {
     return filesys_create (file, initial_size);
+
 }
 
 /*
@@ -367,7 +350,6 @@ list_search (struct list *files, int fd)
     for (e = list_begin (files); 
          e != list_end (files);
          e = list_next (e))
-
     {
       struct proc_file *f = list_entry (e, struct proc_file, elem);
 	    if (f->fd == fd)

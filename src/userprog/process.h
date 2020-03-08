@@ -8,11 +8,4 @@ int process_wait(tid_t);
 void process_exit(void);
 void process_activate(void);
 
-struct argument {
-	struct list_elem argelem;
-	char* name;
-	int argc;
-	char** argv;
-};
-
 #endif /* userprog/process.h */
