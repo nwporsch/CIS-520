@@ -37,7 +37,28 @@ Helped with understanding filedescriptors: https://github.com/kinux98/pintos-pro
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-None.
+struct thread
+{
+	int exit_error; //the number associated with an error
+	int tid_waiting_on; //the id of the thread this thread is waiting for to run
+	int fd_count; //the number of filedescriptors
+	struct thread *parent; //the thread that this thread is a child of
+	struct list children; //list of children
+	struct list all_files; //list of files
+	struct file *current_file; //the current open file
+	struct semaphore child_lock; //the lock for children
+	bool success; //whether or not the file was successfully opened
+	struct list filede; //list of filedescriptors
+};
+Holds information that pertains to user threads.
+
+struct child
+{
+	int tid; //the threads id
+	struct list_elem childelem; //the next child in the list
+	int exit_error; //the number associated with an error
+	bool used; //whether or not the child completed
+};
 
 ---- ALGORITHMS ----
 
@@ -97,15 +118,14 @@ struct child
 	int exit_error; //the number associated with an error
 	bool used; //whether or not the child completed
 };
-Holds information that pertains to threads that are children of other threads.
 
-struct filedesu
+struct process_file
 {
-	int num; //the file descriptors number
-	struct thread * parent; //the parent thread
-	struct file * f; //the file that needs to be opened
-	struct list_elem elem; //the element of the file
+	struct file *ptr; //Holds on to the file that represents the process.
+	int fd; //Keeps track of how many files are being accessed by the process.
+	struct list_elem elem; //An element that allows processes to be used in lists.
 };
+
 Holds information that pertains to open files.
 
 >> B2: Describe how file descriptors are associated with open files.
@@ -151,7 +171,9 @@ entireity of memory, which is clearly not a good idea.
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
-Look through the childrens list of the thread that is waiting, after we find the child that we've been waiting on we check to see whether it or current thread is null, if not then we update the thread that we're waiting on to be the child. Then we check if the child has been used, if not we decrement it's semaphore and return the error given by the childs exit error.
+Look through the childrens list of the thread that is waiting, after we find the child that we've been waiting
+on we check to see whether it or current thread is null, if not then we update the thread that we're waiting on to be the child.
+Then we check if the child has been used, if not we decrement it's semaphore and return the error given by the childs exit error.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -234,23 +256,30 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+I would say this project was fairly diffcult and more time consuming compared to the other projects.
+I think this project would work better if broken into smaller projects, but at the current time I do 
+not know how that would be possible.
 
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
 
+Originally, I had a very basic understanding of how the stack functioned. But, during the stack's construction
+I learned more of why it was used in a reverse order and learned more about memory management.
 
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
-
+The project was very hard to figure out where to start. When passing arguments, the description sounded like it would be fairly simple.
+But, as the project continued it became more and more complicated and harder to keep track of where I needed to look for help.
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
 
-
+The pintos book is pretty good at helping when I already know what I am supposed to do. I think there needs to be some kind of resource that better
+explains different methods and describes processes more clearly.
 
 >> Any other comments?
 
