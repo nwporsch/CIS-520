@@ -37,7 +37,7 @@ syscall_handler(struct intr_frame *f)
 	switch (sys_call)
 	{
 	case SYS_HALT:
-		halt();
+		sys_halt();
 		break;
 
 	case SYS_EXIT:
@@ -53,7 +53,7 @@ syscall_handler(struct intr_frame *f)
 
 	case SYS_WAIT:
 		check_addr(esp + 1);
-		f->eax = wait(*(esp + 1));
+		f->eax = sys_wait(*(esp + 1));
 		break;
 
 	case SYS_CREATE:
@@ -68,7 +68,7 @@ syscall_handler(struct intr_frame *f)
 		check_addr(esp + 1);
 		check_addr(*(esp + 1));
 		acquire_file_lock();
-		f->eax = remove(*(esp + 1));
+		f->eax = sys_remove(*(esp + 1));
 		release_file_lock();
 		break;
 
@@ -78,32 +78,32 @@ syscall_handler(struct intr_frame *f)
 		acquire_file_lock();
 		struct file *file_ptr = filesys_open(*(esp + 1));
 		release_file_lock();
-		f->eax = open(file_ptr);
+		f->eax = sys_open(file_ptr);
 		break;
 
 	case SYS_FILESIZE:
 		check_addr(esp + 1);
 		acquire_file_lock();
-		f->eax = filesize(list_search(&thread_current()->all_files, *(esp + 1))->ptr);
+		f->eax = sys_filesize(list_search(&thread_current()->all_files, *(esp + 1))->ptr);
 		release_file_lock();
 		break;
 
 	case SYS_READ:
 		check_addr(esp + 3);
 		check_addr(*(esp + 2));
-		f->eax = read(esp);
+		f->eax = sys_read(esp);
 		break;
 
 	case SYS_WRITE:
 		check_addr(esp + 3);
 		check_addr(*(esp + 2));
-		f->eax = write(esp);
+		f->eax = sys_write(esp);
 		break;
 
 	case SYS_SEEK:
 		check_addr(esp + 2);
 		acquire_file_lock();
-		seek(list_search(&thread_current()->all_files, *(esp + 1))->ptr, *(esp + 2));
+		sys_seek(list_search(&thread_current()->all_files, *(esp + 1))->ptr, *(esp + 2));
 		release_file_lock();
 		break;
 
@@ -117,7 +117,7 @@ syscall_handler(struct intr_frame *f)
 	case SYS_CLOSE:
 		check_addr(esp + 1);
 		acquire_file_lock();
-		close(&thread_current()->all_files, *(esp + 1));
+		sys_close(&thread_current()->all_files, *(esp + 1));
 		release_file_lock();
 		break;
 
@@ -130,7 +130,7 @@ syscall_handler(struct intr_frame *f)
 Terminates Pintos by calling shutdown_power_off()(declared in threads/init.h). This should be  seldom used, because you lose some information about possible deadlock situations, etc. 
 */
 void
-halt(void)
+sys_halt(void)
 {
 	shutdown_power_off();
 }
@@ -194,7 +194,7 @@ exec(const char *file_name)
 Waits for a child process pidand retrieves the child's exit status. If pidis still alive, waits until it terminates. Then, returns the  status that pidpassed to exit.If piddid not call exit(), but was terminated by the kernel (e.g. killed due to an exception), wait(pid)must return -1. It is perfectly legal for a parent process to wait for child processes that have already terminated by the time the parent calls wait, but the kernel must still allow the parent to retrieve its child's exit status, or learn that the child was terminated by the kernel. 
 */
 int
-wait(pid_t pid)
+sys_wait(pid_t pid)
 {
 	return process_wait(pid);
 }
@@ -203,7 +203,7 @@ wait(pid_t pid)
 Creates a  new file called fileinitially initial_sizebytes in size. Returns true  if successful,  false otherwise. Creating  a  new  file  does  not  open  it:  opening  the  new  file  is  a  separate  operation  which  would  require  a opensystem call. 
 */
 bool
-create(const char *file_name, unsigned initial_size)
+sys_create(const char *file_name, unsigned initial_size)
 {
 	return filesys_create(file_name, initial_size);
 }
@@ -212,7 +212,7 @@ create(const char *file_name, unsigned initial_size)
 Deletes the file called file. Returns true if successful, false otherwise. A file may be removed regardless of whether it is open or closed, and removing an open file does not close it. See Removing an Open File, for details. 
 */
 bool
-remove(const char *file_name)
+sys_remove(const char *file_name)
 {
 	return filesys_remove(file_name) != NULL;
 }
@@ -221,7 +221,7 @@ remove(const char *file_name)
 Opens  the  file  called file.  Returns  a  nonnegative  integer  handle  called  a  "file  descriptor"  (fd),  or -1  if  the file could not be opened. 
 */
 int
-open(struct file *file_ptr)
+sys_open(struct file *file_ptr)
 {
 	if (file_ptr == NULL)
 		return -1;
@@ -241,7 +241,7 @@ open(struct file *file_ptr)
 Returns the size, in bytes, of the file open as fd. 
 */
 int
-filesize(struct file *file)
+sys_filesize(struct file *file)
 {
 	return file_length(file);
 }
@@ -251,7 +251,7 @@ filesize(struct file *file)
 Reads sizebytes from the file open as fdinto buffer. Returns the number of bytes actually read (0 at end of file),  or -1  if  the  file  could  not  be  read  (due  to  a  condition  other  than  end  of  file).  Fd  0  reads  from  the keyboard using input_getc(). 
 */
 int
-read(int *esp)
+sys_read(int *esp)
 {
 	int i;
 	if (*(esp + 1) == 0)
@@ -281,7 +281,7 @@ read(int *esp)
 Writes sizebytes from bufferto the open file fd. Returns the number of bytes actually written, which may be less than sizeif some bytes could not be written. 
 */
 int
-write(int *esp)
+sys_write(int *esp)
 {
 	if (*(esp + 1) == 1)
 	{
@@ -308,7 +308,7 @@ write(int *esp)
 Changes  the  next  byte  to  be read  or  written  in  open  file fdto position,  expressed  in  bytes  from  the beginning of the file. (Thus, a positionof 0 is the file's start.) 
 */
 void
-seek(int fd, unsigned position)
+sys_seek(int fd, unsigned position)
 {
 	return file_seek(fd, position);
 }
@@ -327,7 +327,7 @@ tell(int fd)
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. 
 */
 void
-close(struct list *all_files, int fd)
+sys_close(struct list *all_files, int fd)
 {
 	if (list_empty(&all_files)) return;
 	struct process_file *f;
