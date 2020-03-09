@@ -25,7 +25,7 @@ Helped with understanding argument passing: https://github.com/ChristianJHughes/
 Helped with understanding strtok_r: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
 Helped understand how to do syscall: https://github.com/Waqee/Pintos-Project-2
 Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos-520-Proj2/
-Helped with understanding syscall: https://github.com/rida300/520Pinto
+Helped with understanding syscall: https://github.com/rida300/520Pintos
 Helped with understanding filedescriptors: https://github.com/kinux98/pintos-project-2
 
 			   ARGUMENT PASSING
@@ -104,7 +104,7 @@ struct filedesu
 	int num; //the file descriptors number
 	struct thread * parent; //the parent thread
 	struct file * f; //the file that needs to be opened
-	struct list_elem elem; //
+	struct list_elem elem; //the element of the file
 };
 Holds information that pertains to open files.
 
@@ -121,7 +121,17 @@ process ends or the file is closed, the file descriptors are removed as well.
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
+Using the read method in syscall.c we pass a pointer to the file we want to read as an argument. Then we check if the
+next space in memory is free, if it is we create a buffer located two spaces below the file pointer, and loop in
+order to read the file by storing calls to input_getc in the buffer space. If the next space is not free, we search
+through the list looking for the file in the list of all_files for the current thread. If we can't find it, then
+we return -1, else we found the file and begin reading it by acquiring the filesystem lock, reading the file, 
+releasing the lock and returning what was read.
 
+Using the write method in syscall.c we pass a pointer to the file we want to write as an argument. Then we check if
+the next space of memory is occupied, if it is we place a bufer in the next two spaces after that and return. If the
+next space of memeory is available, we search through the list of all files, and copy the one we're looking for. If
+the file can't be found we return -1, otherwise we found the file, acquire the filesystem lock, start writing the file, release the lock and return what was written.
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -132,11 +142,11 @@ process ends or the file is closed, the file descriptors are removed as well.
 
 If a full page of data is copied into the kernel then that means the data either lies
 entirely in one page or overlaps into another, meaning at least one and at most two inspections
-must be made to the page table. If there is only two bytes then the number is the same, at least
-once at most twice. As long as there is more than one byte of data, there is a chance not all of 
-the data can fit into one full page.
+must be made to the page table (assuming the data can't be fragmented). If there is only two bytes 
+then the number is the same, at least once at most twice. As long as there is more than one byte of
+data, there is a chance not all of the data can fit into one full page.
 The only possible way you could improve this would be to have a full page of data be the 
-entirity memory, which is clearly not a good idea.
+entireity of memory, which is clearly not a good idea.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
@@ -171,8 +181,9 @@ takes an interrupt frame and kills the process before dumping its virtual memory
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
-When we try to open a new file, we make a copy of it's name and check to see if it's NULL.
-//NOT COMPLETED QUESTION
+By adding a bool success field to the thread struct, every thread has access to whether or not a child process 
+successfully executed. This status is checked whenever a thread tries to execute, start, or load, and upon a 
+failure immediately sets the attribute of it's parent to false, otherwise it sets it to true.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -202,7 +213,7 @@ File descriptors allow for quick and reliable searching for needed information.
 
 File descriptors can be placed in a list working them is rather simple, mapping
 between the file descriptor struct and a file isn't very complex and makes the 
-code more reader friendly. This helped streamline debugging somewhat.  A disadvantage
+code more reader friendly. This helped streamline debugging somewhat. A disadvantage
 with file descriptors is that if a thread has too many files open, searching the list
 for the right file descriptor will slow the process down.
 
