@@ -25,7 +25,7 @@ Helped with understanding argument passing: https://github.com/ChristianJHughes/
 Helped with understanding strtok_r: https://www.geeksforgeeks.org/strtok-strtok_r-functions-c-examples/
 Helped understand how to do syscall: https://github.com/Waqee/Pintos-Project-2
 Helped to understand how to add to stack: https://github.com/jhauserw3241/Pintos-520-Proj2/
-Helped with understanding syscall: https://github.com/rida300/520Pinto
+Helped with understanding syscall: https://github.com/rida300/520Pintos
 Helped with understanding filedescriptors: https://github.com/kinux98/pintos-project-2
 
 			   ARGUMENT PASSING
@@ -45,7 +45,10 @@ None.
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+Firstly we copy the entire filename and arguments using palloc to avoid a race condition between the caller and load(). Then we malloc the filename and all parameters, copy it to memory with strlcpy, and tokenize the filename and the parameters using strtoken_r to separate them. Then we create the new thread and execute it with just the file name as the first argument and the entire filename as the last. //Unneeded?
 
+We map a zero page at the top of virtual memory and check to see if the page we actually want is less than PHYS_BASE,
+this prevents us from overflowing the stack page. If that passes we tokenize the filename and the parameters in order to separate them with strtok_r and then loop through the tokens and place them in an array in reverse order that is a copy of argv then copy that array back into argv. Now that argv has the arguments in the right order we go through and push argv, argc, and a void* return address.
 
 ---- RATIONALE ----
 
@@ -58,7 +61,11 @@ Because we need to make sure we know the size of the buffer.  strtok() can buffe
 >> separation.  Identify at least two advantages of the Unix approach.
 
 By allowing the shell to separate the arguments, it allows the kernel system code to be simpler since it can pass the job off to shell instead of doing it itself.  
-Also 
+
+Also it adds efficiency because the shell would only be handling one executable and arguments, the system has
+to manage all of the running threads, and if a new process needs to be executed that is very large then the entire
+system has to slow down in order to prepare the arguments and the stack.
+
 			     SYSTEM CALLS
 			     ============
 
@@ -97,7 +104,7 @@ struct filedesu
 	int num; //the file descriptors number
 	struct thread * parent; //the parent thread
 	struct file * f; //the file that needs to be opened
-	struct list_elem elem; //
+	struct list_elem elem; //the element of the file
 };
 Holds information that pertains to open files.
 
@@ -114,7 +121,17 @@ process ends or the file is closed, the file descriptors are removed as well.
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
+Using the read method in syscall.c we pass a pointer to the file we want to read as an argument. Then we check if the
+next space in memory is free, if it is we create a buffer located two spaces below the file pointer, and loop in
+order to read the file by storing calls to input_getc in the buffer space. If the next space is not free, we search
+through the list looking for the file in the list of all_files for the current thread. If we can't find it, then
+we return -1, else we found the file and begin reading it by acquiring the filesystem lock, reading the file, 
+releasing the lock and returning what was read.
 
+Using the write method in syscall.c we pass a pointer to the file we want to write as an argument. Then we check if
+the next space of memory is occupied, if it is we place a bufer in the next two spaces after that and return. If the
+next space of memeory is available, we search through the list of all files, and copy the one we're looking for. If
+the file can't be found we return -1, otherwise we found the file, acquire the filesystem lock, start writing the file, release the lock and return what was written.
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -123,12 +140,18 @@ process ends or the file is closed, the file descriptors are removed as well.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
-EXCUSE ME WHAT?!?!?!?
+If a full page of data is copied into the kernel then that means the data either lies
+entirely in one page or overlaps into another, meaning at least one and at most two inspections
+must be made to the page table (assuming the data can't be fragmented). If there is only two bytes 
+then the number is the same, at least once at most twice. As long as there is more than one byte of
+data, there is a chance not all of the data can fit into one full page.
+The only possible way you could improve this would be to have a full page of data be the 
+entireity of memory, which is clearly not a good idea.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
-
+Look through the childrens list of the thread that is waiting, after we find the child that we've been waiting on we check to see whether it or current thread is null, if not then we update the thread that we're waiting on to be the child. Then we check if the child has been used, if not we decrement it's semaphore and return the error given by the childs exit error.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -144,7 +167,12 @@ EXCUSE ME WHAT?!?!?!?
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+Having a file that handles exceptions and errors entirely is a good way to avoid obscuring the code, because
+it separates the actual functionality from the problems that come from said functionality. The easiest way 
+to ensure that the resources are free is to dump the frame associated with the process before you exit.
 
+We use the files exception.c and exception.h for error handling and disposal of processes. The kill method
+takes an interrupt frame and kills the process before dumping its virtual memory and exiting the thread.
 
 ---- SYNCHRONIZATION ----
 
@@ -153,7 +181,9 @@ EXCUSE ME WHAT?!?!?!?
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
-
+By adding a bool success field to the thread struct, every thread has access to whether or not a child process 
+successfully executed. This status is checked whenever a thread tries to execute, start, or load, and upon a 
+failure immediately sets the attribute of it's parent to false, otherwise it sets it to true.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -162,19 +192,30 @@ EXCUSE ME WHAT?!?!?!?
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
-
+If P calls wait(C) before C exits, P blocks itself until C exits which will unblock P.
+Once C exits, the tread and it's data is freed by P which allows it to run.  
+If P calls wait(C) after C exits, C should have already updated it's status in P by 
+exiting, so P should have access to C's data and be able to free it if it isn't free.
+Whenever a process is killed we make sure to dump it's virtual memory space before it exits.
+If P exits before C exits, P should update C's parent thread so that it points to main. If P
+exits after C exits, it shouldn't have to worry about what C as it's information should have 
+been dumped by C, allowing P to dump itself.
 
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
-
+File descriptors allow for quick and reliable searching for needed information. 
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
-
+File descriptors can be placed in a list working them is rather simple, mapping
+between the file descriptor struct and a file isn't very complex and makes the 
+code more reader friendly. This helped streamline debugging somewhat. A disadvantage
+with file descriptors is that if a thread has too many files open, searching the list
+for the right file descriptor will slow the process down.
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
