@@ -26,7 +26,8 @@ syscall_init(void)
 {
 	intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
-// includes a switch statement with all possible cases which call the relevant functions accordingly. 
+
+/* Goes through a switch case of all system calls. */
 static void
 syscall_handler(struct intr_frame *f)
 {
@@ -137,20 +138,20 @@ halt(void)
 
 
 /*
-Iterates over the siblings list of current thread, creates a child for each list entry, checks this child's tid against the current thread's. If matched, it sets the used field of the child to true and its exit_errror to the int that was passed into the method.
- If the loop was exited without finding a match, it sets the current thread's error_code to the status.
- Finally, if the current thread's parent is still waiting on it, the semaphore is incremented
+Goes through a list of all the parent's childrens. If the child matches the current threads tid. Then set its error code to the current status and exit the thread.
 */
 void
 exit(int status)
 {
 	struct list_elem *e;
 
+	/*Goes through the list of children in the parent thread*/
 	for (e = list_begin(&thread_current()->parent->children);
 		e != list_end(&thread_current()->parent->children);
 		e = list_next(e))
 	{
 		struct child *c = list_entry(e, struct child, childelem);
+		/*Finds the child with the same tid as the current thread. */
 		if (c->tid == thread_current()->tid)
 		{
 			c->used = true;
@@ -158,15 +159,24 @@ exit(int status)
 		}
 	}
 
+	/*We set the current threads exit error to the status*/
 	thread_current()->exit_error = status;
 
+	/*Tell the parent that children can be used again*/
 	if (thread_current()->parent->tid_waiting_on == thread_current()->tid)
 		sema_up(&thread_current()->parent->child_lock);
+
+	/* Exit the thread. */
 	thread_exit();
 }
 
 /*
-Acquires the lock on the filesystem, uses amlloc to allocate memory for a char pointer. It then copies the filename into memory using the strlcpy function. Then it uses strtok_r to tokenize the filename and store it in fn_cp which is passed into filesys_open and stores the resulting file in a new struct. If this new strcut variable still holds a null value, the lock on the filesystem is released, and a -1 is returned. If the value id non-null, the file is closed, the lock is released and the process_execute function from process.c is called. The result it produced is returned.
+Acquires the lock on the filesystem, uses malloc to allocate memory for a char pointer. 
+It then copies the filename into memory using the strlcpy function. Then it uses strtok_r to tokenize
+the filename and store it in fn_cp which is passed into filesys_open and stores the resulting file in
+a new struct. If this new strcut variable still holds a null value, the lock on the filesystem is released,
+and a -1 is returned. If the value id non-null, the file is closed, the lock is released and the process_execute
+function from process.c is called. The result it produced is returned.
 */
 pid_t
 exec(const char *file_name)
@@ -178,15 +188,18 @@ exec(const char *file_name)
 	char *save_ptr;
 	fn_cp = strtok_r(fn_cp, " ", &save_ptr);
 
+	/* Attempts to open the file*/
 	struct file* f = filesys_open(fn_cp);
 
 	if (f == NULL)
 	{
+		/* If the file does not exist release the lock*/
 		release_file_lock();
 		return -1;
 	}
 	else
 	{
+		/* Close the file and release the file lock and move on the excuting the process. */
 		file_close(f);
 		release_file_lock();
 		return process_execute(file_name);
@@ -195,7 +208,7 @@ exec(const char *file_name)
 
 
 /*
-calls the process_wait function in process.c
+ Calls process wait
 */
 int
 wait(pid_t pid)
@@ -204,7 +217,7 @@ wait(pid_t pid)
 }
 
 /*
-calls filesys_create in filesys.c
+Calls filesys create
 */
 bool
 sys_create(const char *file_name, unsigned initial_size)
@@ -213,7 +226,7 @@ sys_create(const char *file_name, unsigned initial_size)
 }
 
 /*
-calls filesys_remove in filesys.c
+Calls filesys remove
 */
 bool
 remove(const char *file_name)
@@ -222,26 +235,30 @@ remove(const char *file_name)
 }
 
 /*
-First checks if the file passed in is a null value, if so, returns a -1. Otherwise, allocates memory for a process file, assigns the filename (that was passed in as the argument to the function) to the ptr field of the struct. The fd_count field of the current thread is incremented by 1 as one more process is now using this file. This file must be added to the all_files list of the current thread.
+Attempts to open the file.
 */
 int
 sys_open(struct file *file_ptr)
 {
+	/* If the file is null then it has failed to open.*/
 	if (file_ptr == NULL)
 		return -1;
 	else
 	{
+		/* File exists so we create a file descriptor and pointer to the file.*/
 		struct process_file *process_file = malloc(sizeof(*process_file));
 		process_file->ptr = file_ptr;
 		process_file->fd = thread_current()->fd_count;
+		/* Add to the number of files the thread has open.*/
 		thread_current()->fd_count++;
+		/* Add the file  to the back of the list of files.*/
 		list_push_back(&thread_current()->all_files, &process_file->elem);
 		return process_file->fd;
 	}
 }
 
 
-/*returns the length of the file as an int*/
+/*returns the length of the file*/
 int
 sys_filesize(struct file *file)
 {
@@ -250,29 +267,43 @@ sys_filesize(struct file *file)
 
 
 /*
-function to read the file. A pointer to the file is passed in as an argument. Checks if the spot next to this pointer in memory is free. If it is, declares a pointer called buffer at a location 2 spots below the one passed in. It then uses a loop to read the file by calling the input_getc function and stores it in the buffer. If the spot is not empty, the list_search function in list.c is called to look for the file in the list of all_files of the current thread. If it wasn't found, returned -1. Otherwise, the file was found and it must be read by first acquiring the lock to the filesystem, then calling file_read, releasing the lock and returning the results of file_read.
+function to read the file. A pointer to the file is passed in as an argument. 
+Checks if the spot next to this pointer in memory is free. If it is, declares a pointer called buffer at a location 2 spots below the one passed in.
+It then uses a loop to read the file by calling the input_getc function and stores it in the buffer. 
+If the spot is not empty, the list_search function in list.c is called to look for the file in the list of all_files of the current thread. If it wasn't found, returned -1.
+Otherwise, the file was found and it must be read by first acquiring the lock to the filesystem, then calling file_read, releasing the lock and returning the results of file_read.
 */
 int
 sys_read(int *ptr)
 {
 	int i;
+
+	/*Checks to see if the next memory space is open.*/
 	if (*(ptr + 1) == 0)
 	{
+		/*Loop through and read from the file. */
 		uint8_t *buffer = *(ptr + 2);
 		for (i = 0; i < *(ptr + 3); i++)
+			/* Add the file info to the buffer*/
 			buffer[i] = input_getc();
 		return *(ptr + 3);
 	}
 	else
 	{
+
+		/* We search through all files in the threads list of files for the file.*/
 		struct process_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
 		if (file_ptr == NULL)
+			/* The file was not found */
 			return -1;
 		else
 		{
+			/* The file was found and we acquire the lock*/
 			int offset;
 			acquire_file_lock();
+			/*Read from the file */
 			offset = file_read(file_ptr->ptr, *(ptr + 2), *(ptr + 3));
+			/* Release the file lock */
 			release_file_lock();
 			return offset;
 		}
@@ -280,22 +311,28 @@ sys_read(int *ptr)
 }
 
 /*
+Attempt to write to a file
 */
 int
 sys_write(int *ptr)
 {
+	/* If there is data in the memory space next to the file*/
 	if (*(ptr + 1) == 1)
 	{
+		/* We move through the memory to the next block*/
 		putbuf(*(ptr + 2), *(ptr + 3));
 		return *(ptr + 3);
 	}
 	else
 	{
+		/* If the space was free then we search the list of open files. */
 		struct process_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
+		/* We could not find the file. */
 		if (file_ptr == NULL)
 			return -1;
 		else
 		{
+			/* Found the file and we write to the file. */
 			int offset;
 			acquire_file_lock();
 			offset = file_write(file_ptr->ptr, *(ptr + 2), *(ptr + 3));
@@ -321,76 +358,97 @@ tell(int fd)
 
 
 /*
-Function to close the file. First checks the all_files list, if that is empty, there are no files to close so we return out of the function. If it isn't empty, we look for the given file in that list and store a pointer to it. Then we call file_close which closes the file, remove this file from its list and frees the memory that was allocated for the file.
+Attempts to close the file.
 */
 void
 sys_close(struct list *all_files, int fd)
 {
-	if (list_empty(&all_files)) return;
+	/* Checks to see if the list of files is empty.*/
+	if (list_empty(&all_files))
+		return;
+
+
 	struct process_file *f;
+	
+	/* If the list is not empty we look for the file. */
 	f = list_search(all_files, fd);
 	if (f != NULL)
 	{
+		/* We found the file and we remove it from the list. */
 		file_close(f->ptr);
 		list_remove(&f->elem);
+		/* We free it from memory. */
 		free(f);
 	}
 }
 
 
 /*
-Function to close all files in the list which is provided as an argument. Loops over the list, pops each entry and stores it in a temporary variable, them creates a process file using this variable. It then calls file_close and passes in a pointer to this file after which it is removed from the list. Finally, the memory allocated for each file is freed.
+  Closes all files a process has.
 */
 void
 close_all_files(struct list *files)
 {
 	struct list_elem *e;
 
+	/* If the list is not empty we keep going and removing them from the list */
 	while (!list_empty(files))
 	{
 		e = list_pop_front(files);
 		struct process_file *f = list_entry(e, struct process_file, elem);
+		/* Removes the file from the list. */
 		file_close(f->ptr);
 		list_remove(e);
 		free(f);
 	}
 }
 /*
-Looks for a given file in a given list. Iterates over the list , creates a file for each element of the list, checks its file descriptor against the one provided as a parameter. If they match, the file is returned. If no such file exists, returns null
+Goes through the list of files to find the correct one.
 */
 struct process_file*
 	list_search(struct list *files, int fd)
 {
 	struct list_elem *e;
+
+	/* Go through the list of files*/
 	for (e = list_begin(files);
 		e != list_end(files);
 		e = list_next(e))
 
 	{
 		struct process_file *f = list_entry(e, struct process_file, elem);
+		/* If we find the one with the correct fd return it. */
 		if (f->fd == fd)
 			return f;
 	}
 
+	/* We didn't find it. */
 	return NULL;
 }
 
 /*
-calls is_user_vaddr which returns true if VADDR is a user virtual address. If it is not, calls exit with -1 and returns 0. If it returns true, we call pagedir_get_page and store the results in a pointer. If this pointer holds a non-null value, it is returned. Otherwise, the same process is repeated where exit was called and 0 was returned.
+Checks to see if ths vaddr is a virtual address and if so creates a page.
 */
 void*
 check_addr(const void *vaddr)
 {
+	/*Checks to see if vaddr is a virtual address.*/
 	if (!is_user_vaddr(vaddr))
 	{
+		/* It is not a virtual address*/
 		exit(-1);
 		return 0;
 	}
+
+	/* We attempt to get a page. */
 	void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
 	if (!ptr)
 	{
+		/* We could not get a page*/
 		exit(-1);
 		return 0;
 	}
+
+	/* We got a page. */
 	return ptr;
 }
