@@ -119,15 +119,6 @@ struct child
 	bool used; //whether or not the child completed
 };
 
-struct process_file
-{
-	struct file *ptr; //Holds on to the file that represents the process.
-	int fd; //Keeps track of how many files are being accessed by the process.
-	struct list_elem elem; //An element that allows processes to be used in lists.
-};
-
-Holds information that pertains to open files.
-
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
