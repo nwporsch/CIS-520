@@ -10,11 +10,9 @@
 #include "filesys/filesys.h"
 
 static void syscall_handler(struct intr_frame *);
-//added
 void* check_addr(const void*);
 struct proc_file* list_search(struct list *, int);
 
-//added struct to represent a process file
 struct proc_file
 {
 	struct file *ptr;
@@ -27,13 +25,13 @@ syscall_init(void)
 {
 	intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
-// includes a switch statement with all possible cases which call the relevant functions accordingly. 
+
 static void
 syscall_handler(struct intr_frame *f)
 {
-	int *ptr = f->esp;
-	check_addr(ptr);
-	int sys_call = *ptr;
+	int *esp = f->esp;
+	check_addr(esp);
+	int sys_call = *esp;
 	switch (sys_call)
 	{
 	case SYS_HALT:
@@ -41,82 +39,82 @@ syscall_handler(struct intr_frame *f)
 		break;
 
 	case SYS_EXIT:
-		check_addr(ptr + 1);
-		exit(*(ptr + 1));
+		check_addr(esp + 1);
+		exit(*(esp + 1));
 		break;
 
 	case SYS_EXEC:
-		check_addr(ptr + 1);
-		check_addr(*(ptr + 1));
-		f->eax = exec(*(ptr + 1));
+		check_addr(esp + 1);
+		check_addr(*(esp + 1));
+		f->eax = exec(*(esp + 1));
 		break;
 
 	case SYS_WAIT:
-		check_addr(ptr + 1);
-		f->eax = wait(*(ptr + 1));
+		check_addr(esp + 1);
+		f->eax = wait(*(esp + 1));
 		break;
 
 	case SYS_CREATE:
-		check_addr(ptr + 2);
-		check_addr(*(ptr + 1));
+		check_addr(esp + 2);
+		check_addr(*(esp + 1));
 		acquire_file_lock();
-		f->eax = filesys_create(*(ptr + 1), *(ptr + 2));
+		f->eax = filesys_create(*(esp + 1), *(esp + 2));
 		release_file_lock();
 		break;
 
 	case SYS_REMOVE:
-		check_addr(ptr + 1);
-		check_addr(*(ptr + 1));
+		check_addr(esp + 1);
+		check_addr(*(esp + 1));
 		acquire_file_lock();
-		f->eax = remove(*(ptr + 1));
+		f->eax = remove(*(esp + 1));
 		release_file_lock();
 		break;
 
 	case SYS_OPEN:
-		check_addr(ptr + 1);
-		check_addr(*(ptr + 1));
+		check_addr(esp + 1);
+		check_addr(*(esp + 1));
 		acquire_file_lock();
-		f->eax = open(*(ptr + 1));
+		f->eax = open(*(esp + 1));
 		release_file_lock();
 		break;
 
 	case SYS_FILESIZE:
-		check_addr(ptr + 1);
+		check_addr(esp + 1);
 		acquire_file_lock();
-		f->eax = filesize(list_search(&thread_current()->all_files, *(ptr + 1))->ptr);
+		f->eax = filesize(list_search(&thread_current()->all_files, *(esp + 1))->ptr);
 		release_file_lock();
 		break;
 
 	case SYS_READ:
-		check_addr(ptr + 3);
-		check_addr(*(ptr + 2));
-		f->eax = write (*(ptr + 1), (void *) *(ptr + 2), *(ptr+ 3));
+		check_addr(esp + 3);
+		check_addr(*(esp + 2));
+		f->eax = write (*(esp + 1), (void *) *(esp + 2), *(esp+ 3));
 		break;
 
 	case SYS_WRITE:
-		check_addr(ptr + 3);
-		check_addr(*(ptr + 2));
-		f->eax = write (*(ptr + 1), (void *) *(ptr + 2), *(ptr + 3));
+		check_addr(esp + 3);
+		check_addr(*(esp + 2));
+		f->eax = write (*(esp + 1), (void *) *(esp + 2), *(esp + 3));
 		break;
 
 	case SYS_SEEK:
-		check_addr(ptr + 2);
+		check_addr(esp + 2);
 		acquire_file_lock();
-		seek (list_search (&thread_current ()->all_files, *(ptr+1))->ptr, *(ptr+2));
+		seek (list_search (&thread_current ()->all_files, *(esp+1))->ptr, *(esp+2));
 		release_file_lock();
 		break;
 
 	case SYS_TELL:
-		check_addr(ptr + 1);
+		check_addr(esp + 1);
 		acquire_file_lock();
-		f->eax = tell(list_search(&thread_current()->all_files, *(ptr + 1))->ptr);
+		f->eax = tell(list_search(&thread_current()->all_files, *(esp + 1))->ptr);
 		release_file_lock();
 		break;
 
 	case SYS_CLOSE:
-		check_addr(ptr + 1);
+		check_addr(esp + 1);
 		acquire_file_lock();
-		close(*(ptr + 1));
+		close(*(esp + 1));
 		release_file_lock();
 		break;
 
@@ -126,7 +124,7 @@ syscall_handler(struct intr_frame *f)
 	}
 }
 /*
-Calls the shutdown_power_off function
+Terminates Pintos by calling shutdown_power_off()(declared in threads/init.h). This should be  seldom used, because you lose some information about possible deadlock situations, etc. 
 */
 void
 halt(void)
@@ -136,9 +134,7 @@ halt(void)
 
 
 /*
-Iterates over the siblings list of current thread, creates a child for each list entry, checks this child's tid against the current thread's. If matched, it sets the used field of the child to true and its exit_errror to the int that was passed into the method.
- If the loop was exited without finding a match, it sets the current thread's error_code to the status.
- Finally, if the current thread's parent is still waiting on it, the semaphore is incremented
+Terminates the current user program, returning statusto the kernel. If the process's parent waits for it (see below), this is the status that will be returned. Conventionally, a statusof 0 indicates success and nonzero values indicate errors. 
 */
 void
 exit(int status)
@@ -165,7 +161,7 @@ exit(int status)
 }
 
 /*
-Acquires the lock on the filesystem, uses amlloc to allocate memory for a char pointer. It then copies the filename into memory using the strlcpy function. Then it uses strtok_r to tokenize the filename and store it in fn_cp which is passed into filesys_open and stores the resulting file in a new struct. If this new strcut variable still holds a null value, the lock on the filesystem is released, and a -1 is returned. If the value id non-null, the file is closed, the lock is released and the process_execute function from process.c is called. The result it produced is returned.
+Runs the  executable  whose name  is given in cmd_line, passing any given arguments, and returns the new process's  program  id (pid).  Must  return  pid -1,  which  otherwise  should  not  be  a  valid  pid,  if  the  program cannot  load  or  run  for  any  reason.  Thus,  the  parent  process  cannot  return  from  the execuntil  it  knows whether the child process successfully loaded its executable. You must use appropriate synchronization to ensure this. 
 */
 pid_t
 exec(const char *cmd_line)
@@ -194,7 +190,7 @@ exec(const char *cmd_line)
 
 
 /*
-calls the process_wait function in process.c
+aits for a child process pidand retrieves the child's exit status. If pidis still alive, waits until it terminates. Then, returns the  status that pidpassed to exit.If piddid not call exit(), but was terminated by the kernel (e.g. killed due to an exception), wait(pid)must return -1. It is perfectly legal for a parent process to wait for child processes that have already terminated by the time the parent calls wait, but the kernel must still allow the parent to retrieve its child's exit status, or learn that the child was terminated by the kernel. 
 */
 int
 wait(pid_t pid)
@@ -203,7 +199,7 @@ wait(pid_t pid)
 }
 
 /*
-calls filesys_create in filesys.c
+Creates a  new file called fileinitially initial_sizebytes in size. Returns true  if successful,  false otherwise. Creating  a  new  file  does  not  open  it:  opening  the  new  file  is  a  separate  operation  which  would  require  a opensystem call. 
 */
 bool
 create(const char *file_name, unsigned initial_size)
@@ -212,7 +208,7 @@ create(const char *file_name, unsigned initial_size)
 }
 
 /*
-calls filesys_remove in filesys.c
+Opens  the  file  called file.  Returns  a  nonnegative  integer  handle  called  a  "file  descriptor"  (fd),  or -1  if  the file could not be opened. File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is standard input, fd  1  (STDOUT_FILENO)  is  standard  output.  The opensystem  call  will  never  return  either  of  these  file descriptors, which are valid as system call arguments only as explicitly described below. Each process has an independent set of file descriptors. File descriptors are not inherited by child processes. When a single file is opened more than once, whether by a single process or different processes, each openreturns a new file descriptor. Different file descriptors for a single file are closed independently in separate calls to closeand they do not share a file position.
 */
 bool
 remove(const char *file_name)
@@ -221,7 +217,7 @@ remove(const char *file_name)
 }
 
 /*
-First checks if the file passed in is a null value, if so, returns a -1. Otherwise, allocates memory for a process file, assigns the filename (that was passed in as the argument to the function) to the ptr field of the struct. The fd_count field of the current thread is incremented by 1 as one more process is now using this file. This file must be added to the all_files list of the current thread.
+Opens  the  file  called file.  Returns  a  nonnegative  integer  handle  called  a  "file  descriptor"  (fd),  or -1  if  the file could not be opened. File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is standard input, fd  1  (STDOUT_FILENO)  is  standard  output.  The opensystem  call  will  never  return  either  of  these  file descriptors, which are valid as system call arguments only as explicitly described below. Each process has an independent set of file descriptors. File descriptors are not inherited by child processes. When a single file is opened more than once, whether by a single process or different processes, each openreturns a new file descriptor. Different file descriptors for a single file are closed independently in separate calls to closeand they do not share a file position. 
 */
 int
 open(const char *file)
@@ -242,7 +238,9 @@ open(const char *file)
 }
 
 
-/*returns the length of the file as an int*/
+/*
+Returns the size, in bytes, of the file open as fd. 
+*/
 int
 filesize(int fd)
 {
@@ -260,7 +258,7 @@ filesize(int fd)
 
 
 /*
-function to read the file. A pointer to the file is passed in as an argument. Checks if the spot next to this pointer in memory is free. If it is, declares a pointer called buffer at a location 2 spots below the one passed in. It then uses a loop to read the file by calling the input_getc function and stores it in the buffer. If the spot is not empty, the list_search function in list.c is called to look for the file in the list of all_files of the current thread. If it wasn't found, returned -1. Otherwise, the file was found and it must be read by first acquiring the lock to the filesystem, then calling file_read, releasing the lock and returning the results of file_read.
+Reads sizebytes from the file open as fd into buffer. Returns the number of bytes actually read (0 at end of file),  or -1  if  the  file  could  not  be  read  (due  to  a  condition  other  than  end  of  file).  Fd  0  reads  from  the keyboard using input_getc(). 
 */
 int
 read(int fd, void* buffer, unsigned size)
@@ -290,6 +288,7 @@ read(int fd, void* buffer, unsigned size)
 }
 
 /*
+Writes sizebytes from bufferto the open file fd. Returns the number of bytes actually written, which may be less than sizeif some bytes could not be written. 
 */
 int write (int fd, const void *buffer, unsigned length)
 {
@@ -314,14 +313,14 @@ int write (int fd, const void *buffer, unsigned length)
 	}
 }
 
-/*calls file_seek in filesys.c*/
+/*Changes  the  next  byte  to  be read  or  written  in  open  file fdto position,  expressed  in  bytes  from  the beginning of the file. (Thus, a positionof 0 is the file's start.) A  seek past the  current end of a  file is not an error. A  later read obtains 0 bytes,  indicating end of file. A later  write  extends  the  file,  filling  any  unwritten  gap  with  zeros.  (However,  in  Pintos  files  have  a  fixed length  until  project  4  is  complete,  so  writes  past  end  of  file  will  return  an  error.)  These  semantics  are implemented in the file system and do not require any special effort in system call implementation. */
 void
 seek(int fd, unsigned position)
 {
 	return file_seek(fd, position);
 }
 
-/*calls file_tell in filesys.c*/
+/*Returns  the  position  of  the  next  byte  to  be  read  or  written  in  open  file fd,  expressed  in  bytes  from  the beginning of the file.*/
 unsigned
 tell(int fd)
 {
@@ -330,7 +329,7 @@ tell(int fd)
 
 
 /*
-Function to close the file. First checks the all_files list, if that is empty, there are no files to close so we return out of the function. If it isn't empty, we look for the given file in that list and store a pointer to it. Then we call file_close which closes the file, remove this file from its list and frees the memory that was allocated for the file.
+Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. 
 */
 void
 close(int fd)
@@ -348,7 +347,7 @@ close(int fd)
 
 
 /*
-Function to close all files in the list which is provided as an argument. Loops over the list, pops each entry and stores it in a temporary variable, them creates a process file using this variable. It then calls file_close and passes in a pointer to this file after which it is removed from the list. Finally, the memory allocated for each file is freed.
+Closes all the files in the provided list. 
 */
 void
 close_all_files(struct list *files)
@@ -364,8 +363,9 @@ close_all_files(struct list *files)
 		free(f);
 	}
 }
+
 /*
-Looks for a given file in a given list. Iterates over the list , creates a file for each element of the list, checks its file descriptor against the one provided as a parameter. If they match, the file is returned. If no such file exists, returns null
+Looks through a list to see if the fd is inside.
 */
 struct proc_file*
 	list_search(struct list *files, int fd)
@@ -385,7 +385,7 @@ struct proc_file*
 }
 
 /*
-calls is_user_vaddr which returns true if VADDR is a user virtual address. If it is not, calls exit with -1 and returns 0. If it returns true, we call pagedir_get_page and store the results in a pointer. If this pointer holds a non-null value, it is returned. Otherwise, the same process is repeated where exit was called and 0 was returned.
+Checks if the adress passed in is in virtual memory. If its not we get the page and return that. 
 */
 void*
 check_addr(const void *vaddr)

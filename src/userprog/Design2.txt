@@ -92,15 +92,6 @@ struct child
 };
 Holds information that pertains to threads that are children of other threads.
 
-struct filedesu
-{
-	int num; //the file descriptors number
-	struct thread * parent; //the parent thread
-	struct file * f; //the file that needs to be opened
-	struct list_elem elem; //
-};
-Holds information that pertains to open files.
-
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
