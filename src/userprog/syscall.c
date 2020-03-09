@@ -37,7 +37,7 @@ syscall_handler(struct intr_frame *f)
 	switch (sys_call)
 	{
 	case SYS_HALT:
-		sys_halt();
+		halt();
 		break;
 
 	case SYS_EXIT:
@@ -226,7 +226,7 @@ First checks if the file passed in is a null value, if so, returns a -1. Otherwi
 int
 open(const char *file)
 {
-	struct file *file_ptr = filesys_open (file_name);
+	struct file *file_ptr = filesys_open (file);
 	if (file_ptr == NULL)
 		return -1;
 	else
@@ -244,9 +244,18 @@ open(const char *file)
 
 /*returns the length of the file as an int*/
 int
-filesize(struct file *file)
+filesize(int fd)
 {
-	return file_length(file);
+	struct list_elem *temp;
+	for (temp = list_front(&thread_current()->filede); temp != NULL; temp = temp->next)
+	{
+		struct proc_file *t = list_entry (temp, struct proc_file, elem);
+		if (t->fd == fd)
+		{
+			return (int) file_length(t->ptr);
+		}	
+	}
+	return -1;
 }
 
 
@@ -254,27 +263,27 @@ filesize(struct file *file)
 function to read the file. A pointer to the file is passed in as an argument. Checks if the spot next to this pointer in memory is free. If it is, declares a pointer called buffer at a location 2 spots below the one passed in. It then uses a loop to read the file by calling the input_getc function and stores it in the buffer. If the spot is not empty, the list_search function in list.c is called to look for the file in the list of all_files of the current thread. If it wasn't found, returned -1. Otherwise, the file was found and it must be read by first acquiring the lock to the filesystem, then calling file_read, releasing the lock and returning the results of file_read.
 */
 int
-read(int fd, const void* buffer, unsigned size)
+read(int fd, void* buffer, unsigned size)
 {
 	int i;
-  if (*(ptr+1) == 0)
+  if (fd == 0)
   {
-  	uint8_t *buffer = *(ptr+2);
-  	for (i = 0; i < *(ptr+3); i++)
-  		buffer[i] = input_getc ();
-  	return *(ptr+3);
+  	uint8_t *f = buffer;
+  	for (i = 0; i < size; i++)
+  		f[i] = input_getc ();
+  	return size;
   }
   else
   {
-  	struct proc_file *file_ptr = list_search (&thread_current()->all_files, *(ptr+1));
+  	struct proc_file *file_ptr = list_search (&thread_current()->all_files, fd);
   	if (file_ptr == NULL)
   		return -1;
   	else
   	{
   		int offset;
-  		acquire_filesys_lock ();
-  		offset = file_read (file_ptr->ptr, *(ptr+2), *(ptr+3));
-  		release_filesys_lock ();
+  		acquire_file_lock ();
+  		offset = file_read (file_ptr->ptr,buffer, size);
+  		release_file_lock ();
   		return offset;
   	}
   }
@@ -282,25 +291,24 @@ read(int fd, const void* buffer, unsigned size)
 
 /*
 */
-int
-write(int fd, void *buffer, unsigned size)
+int write (int fd, const void *buffer, unsigned length)
 {
  	if (fd == 1)
 	{
-		putbuf (*(ptr+2), *(ptr+3));
-		return *(ptr+3);
+		putbuf (buffer, length);
+		return length;
 	}
 	else
 	{
-		struct proc_file *file_ptr = list_search (&thread_current ()->all_files, *(ptr+1));
+		struct proc_file *file_ptr = list_search (&thread_current ()->all_files, fd);
 		if (file_ptr == NULL)
 			return -1;
 		else
 		{
 			int offset;
-			acquire_filesys_lock ();
-			offset = file_write (file_ptr->ptr, *(ptr+2), *(ptr+3));
-			release_filesys_lock ();
+			acquire_file_lock ();
+			offset = file_write (file_ptr->ptr, buffer, length);
+			release_file_lock ();
 			return offset;
 		}
 	}
