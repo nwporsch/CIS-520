@@ -10,12 +10,11 @@
 #include "filesys/filesys.h"
 
 static void syscall_handler(struct intr_frame *);
-//added
-void* check_addr(const void*);
-struct proc_file* list_search(struct list *, int);
 
-//added struct to represent a process file
-struct proc_file
+void* check_addr(const void*);
+struct process_file* list_search(struct list *, int);
+
+struct process_file
 {
 	struct file *ptr;
 	int fd;
@@ -232,12 +231,12 @@ sys_open(struct file *file_ptr)
 		return -1;
 	else
 	{
-		struct proc_file *proc_file = malloc(sizeof(*proc_file));
-		proc_file->ptr = file_ptr;
-		proc_file->fd = thread_current()->fd_count;
+		struct process_file *process_file = malloc(sizeof(*process_file));
+		process_file->ptr = file_ptr;
+		process_file->fd = thread_current()->fd_count;
 		thread_current()->fd_count++;
-		list_push_back(&thread_current()->all_files, &proc_file->elem);
-		return proc_file->fd;
+		list_push_back(&thread_current()->all_files, &process_file->elem);
+		return process_file->fd;
 	}
 }
 
@@ -266,7 +265,7 @@ sys_read(int *ptr)
 	}
 	else
 	{
-		struct proc_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
+		struct process_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
 		if (file_ptr == NULL)
 			return -1;
 		else
@@ -292,7 +291,7 @@ sys_write(int *ptr)
 	}
 	else
 	{
-		struct proc_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
+		struct process_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
 		if (file_ptr == NULL)
 			return -1;
 		else
@@ -328,7 +327,7 @@ void
 sys_close(struct list *all_files, int fd)
 {
 	if (list_empty(&all_files)) return;
-	struct proc_file *f;
+	struct process_file *f;
 	f = list_search(all_files, fd);
 	if (f != NULL)
 	{
@@ -350,7 +349,7 @@ close_all_files(struct list *files)
 	while (!list_empty(files))
 	{
 		e = list_pop_front(files);
-		struct proc_file *f = list_entry(e, struct proc_file, elem);
+		struct process_file *f = list_entry(e, struct process_file, elem);
 		file_close(f->ptr);
 		list_remove(e);
 		free(f);
@@ -359,7 +358,7 @@ close_all_files(struct list *files)
 /*
 Looks for a given file in a given list. Iterates over the list , creates a file for each element of the list, checks its file descriptor against the one provided as a parameter. If they match, the file is returned. If no such file exists, returns null
 */
-struct proc_file*
+struct process_file*
 	list_search(struct list *files, int fd)
 {
 	struct list_elem *e;
@@ -368,7 +367,7 @@ struct proc_file*
 		e = list_next(e))
 
 	{
-		struct proc_file *f = list_entry(e, struct proc_file, elem);
+		struct process_file *f = list_entry(e, struct process_file, elem);
 		if (f->fd == fd)
 			return f;
 	}
