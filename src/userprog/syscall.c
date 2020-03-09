@@ -33,7 +33,6 @@ syscall_handler(struct intr_frame *f)
 {
 	int *ptr = f->esp;
 	check_addr(ptr);
-
 	int sys_call = *ptr;
 	switch (sys_call)
 	{
@@ -54,7 +53,7 @@ syscall_handler(struct intr_frame *f)
 
 	case SYS_WAIT:
 		check_addr(ptr + 1);
-		f->eax = sys_wait(*(ptr + 1));
+		f->eax = wait(*(ptr + 1));
 		break;
 
 	case SYS_CREATE:
@@ -69,7 +68,7 @@ syscall_handler(struct intr_frame *f)
 		check_addr(ptr + 1);
 		check_addr(*(ptr + 1));
 		acquire_file_lock();
-		f->eax = sys_remove(*(ptr + 1));
+		f->eax = remove(*(ptr + 1));
 		release_file_lock();
 		break;
 
@@ -77,34 +76,33 @@ syscall_handler(struct intr_frame *f)
 		check_addr(ptr + 1);
 		check_addr(*(ptr + 1));
 		acquire_file_lock();
-		struct file *file_ptr = filesys_open(*(ptr + 1));
+		f->eax = open(*(ptr + 1));
 		release_file_lock();
-		f->eax = sys_open(file_ptr);
 		break;
 
 	case SYS_FILESIZE:
 		check_addr(ptr + 1);
 		acquire_file_lock();
-		f->eax = sys_filesize(list_search(&thread_current()->all_files, *(ptr + 1))->ptr);
+		f->eax = filesize(list_search(&thread_current()->all_files, *(ptr + 1))->ptr);
 		release_file_lock();
 		break;
 
 	case SYS_READ:
 		check_addr(ptr + 3);
 		check_addr(*(ptr + 2));
-		f->eax = sys_read(ptr);
+		f->eax = write (*(ptr + 1), (void *) *(ptr + 2), *(ptr+ 3));
 		break;
 
 	case SYS_WRITE:
 		check_addr(ptr + 3);
 		check_addr(*(ptr + 2));
-		f->eax = sys_write(ptr);
+		f->eax = write (*(ptr + 1), (void *) *(ptr + 2), *(ptr + 3));
 		break;
 
 	case SYS_SEEK:
 		check_addr(ptr + 2);
 		acquire_file_lock();
-		sys_seek(list_search(&thread_current()->all_files, *(ptr + 1))->ptr, *(ptr + 2));
+		seek (list_search (&thread_current ()->all_files, *(ptr+1))->ptr, *(ptr+2));
 		release_file_lock();
 		break;
 
@@ -118,7 +116,7 @@ syscall_handler(struct intr_frame *f)
 	case SYS_CLOSE:
 		check_addr(ptr + 1);
 		acquire_file_lock();
-		sys_close(&thread_current()->all_files, *(ptr + 1));
+		close(*(ptr + 1));
 		release_file_lock();
 		break;
 
@@ -131,7 +129,7 @@ syscall_handler(struct intr_frame *f)
 Calls the shutdown_power_off function
 */
 void
-sys_halt(void)
+halt(void)
 {
 	shutdown_power_off();
 }
@@ -170,11 +168,11 @@ exit(int status)
 Acquires the lock on the filesystem, uses amlloc to allocate memory for a char pointer. It then copies the filename into memory using the strlcpy function. Then it uses strtok_r to tokenize the filename and store it in fn_cp which is passed into filesys_open and stores the resulting file in a new struct. If this new strcut variable still holds a null value, the lock on the filesystem is released, and a -1 is returned. If the value id non-null, the file is closed, the lock is released and the process_execute function from process.c is called. The result it produced is returned.
 */
 pid_t
-exec(const char *file_name)
+exec(const char *cmd_line)
 {
 	acquire_file_lock();
-	char *fn_cp = malloc(strlen(file_name) + 1);
-	strlcpy(fn_cp, file_name, strlen(file_name) + 1);
+	char *fn_cp = malloc(strlen(cmd_line) + 1);
+	strlcpy(fn_cp, cmd_line, strlen(cmd_line) + 1);
 
 	char *save_ptr;
 	fn_cp = strtok_r(fn_cp, " ", &save_ptr);
@@ -190,7 +188,7 @@ exec(const char *file_name)
 	{
 		file_close(f);
 		release_file_lock();
-		return process_execute(file_name);
+		return process_execute(cmd_line);
 	}
 }
 
@@ -199,7 +197,7 @@ exec(const char *file_name)
 calls the process_wait function in process.c
 */
 int
-sys_wait(pid_t pid)
+wait(pid_t pid)
 {
 	return process_wait(pid);
 }
@@ -208,7 +206,7 @@ sys_wait(pid_t pid)
 calls filesys_create in filesys.c
 */
 bool
-sys_create(const char *file_name, unsigned initial_size)
+create(const char *file_name, unsigned initial_size)
 {
 	return filesys_create(file_name, initial_size);
 }
@@ -217,7 +215,7 @@ sys_create(const char *file_name, unsigned initial_size)
 calls filesys_remove in filesys.c
 */
 bool
-sys_remove(const char *file_name)
+remove(const char *file_name)
 {
 	return filesys_remove(file_name) != NULL;
 }
@@ -226,12 +224,14 @@ sys_remove(const char *file_name)
 First checks if the file passed in is a null value, if so, returns a -1. Otherwise, allocates memory for a process file, assigns the filename (that was passed in as the argument to the function) to the ptr field of the struct. The fd_count field of the current thread is incremented by 1 as one more process is now using this file. This file must be added to the all_files list of the current thread.
 */
 int
-sys_open(struct file *file_ptr)
+open(const char *file)
 {
+	struct file *file_ptr = filesys_open (file_name);
 	if (file_ptr == NULL)
 		return -1;
 	else
 	{
+		struct file *cur_file = filesys_open(file);
 		struct proc_file *proc_file = malloc(sizeof(*proc_file));
 		proc_file->ptr = file_ptr;
 		proc_file->fd = thread_current()->fd_count;
@@ -244,7 +244,7 @@ sys_open(struct file *file_ptr)
 
 /*returns the length of the file as an int*/
 int
-sys_filesize(struct file *file)
+filesize(struct file *file)
 {
 	return file_length(file);
 }
@@ -254,53 +254,53 @@ sys_filesize(struct file *file)
 function to read the file. A pointer to the file is passed in as an argument. Checks if the spot next to this pointer in memory is free. If it is, declares a pointer called buffer at a location 2 spots below the one passed in. It then uses a loop to read the file by calling the input_getc function and stores it in the buffer. If the spot is not empty, the list_search function in list.c is called to look for the file in the list of all_files of the current thread. If it wasn't found, returned -1. Otherwise, the file was found and it must be read by first acquiring the lock to the filesystem, then calling file_read, releasing the lock and returning the results of file_read.
 */
 int
-sys_read(int *ptr)
+read(int fd, const void* buffer, unsigned size)
 {
 	int i;
-	if (*(ptr + 1) == 0)
-	{
-		uint8_t *buffer = *(ptr + 2);
-		for (i = 0; i < *(ptr + 3); i++)
-			buffer[i] = input_getc();
-		return *(ptr + 3);
-	}
-	else
-	{
-		struct proc_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
-		if (file_ptr == NULL)
-			return -1;
-		else
-		{
-			int offset;
-			acquire_file_lock();
-			offset = file_read(file_ptr->ptr, *(ptr + 2), *(ptr + 3));
-			release_file_lock();
-			return offset;
-		}
-	}
+  if (*(ptr+1) == 0)
+  {
+  	uint8_t *buffer = *(ptr+2);
+  	for (i = 0; i < *(ptr+3); i++)
+  		buffer[i] = input_getc ();
+  	return *(ptr+3);
+  }
+  else
+  {
+  	struct proc_file *file_ptr = list_search (&thread_current()->all_files, *(ptr+1));
+  	if (file_ptr == NULL)
+  		return -1;
+  	else
+  	{
+  		int offset;
+  		acquire_filesys_lock ();
+  		offset = file_read (file_ptr->ptr, *(ptr+2), *(ptr+3));
+  		release_filesys_lock ();
+  		return offset;
+  	}
+  }
 }
 
 /*
 */
 int
-sys_write(int *ptr)
+write(int fd, void *buffer, unsigned size)
 {
-	if (*(ptr + 1) == 1)
+ 	if (fd == 1)
 	{
-		putbuf(*(ptr + 2), *(ptr + 3));
-		return *(ptr + 3);
+		putbuf (*(ptr+2), *(ptr+3));
+		return *(ptr+3);
 	}
 	else
 	{
-		struct proc_file *file_ptr = list_search(&thread_current()->all_files, *(ptr + 1));
+		struct proc_file *file_ptr = list_search (&thread_current ()->all_files, *(ptr+1));
 		if (file_ptr == NULL)
 			return -1;
 		else
 		{
 			int offset;
-			acquire_file_lock();
-			offset = file_write(file_ptr->ptr, *(ptr + 2), *(ptr + 3));
-			release_file_lock();
+			acquire_filesys_lock ();
+			offset = file_write (file_ptr->ptr, *(ptr+2), *(ptr+3));
+			release_filesys_lock ();
 			return offset;
 		}
 	}
@@ -308,7 +308,7 @@ sys_write(int *ptr)
 
 /*calls file_seek in filesys.c*/
 void
-sys_seek(int fd, unsigned position)
+seek(int fd, unsigned position)
 {
 	return file_seek(fd, position);
 }
@@ -325,11 +325,11 @@ tell(int fd)
 Function to close the file. First checks the all_files list, if that is empty, there are no files to close so we return out of the function. If it isn't empty, we look for the given file in that list and store a pointer to it. Then we call file_close which closes the file, remove this file from its list and frees the memory that was allocated for the file.
 */
 void
-sys_close(struct list *all_files, int fd)
+close(int fd)
 {
-	if (list_empty(&all_files)) return;
+	if (list_empty(&thread_current()->all_files)) return;
 	struct proc_file *f;
-	f = list_search(all_files, fd);
+	f = list_search(&thread_current()->all_files, fd);
 	if (f != NULL)
 	{
 		file_close(f->ptr);
