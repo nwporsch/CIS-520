@@ -60,13 +60,17 @@ struct child
 	bool used; //whether or not the child completed
 };
 
+Holds information that pertains to child threads.
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
-Firstly we copy the entire filename and arguments using palloc to avoid a race condition between the caller and load(). Then we malloc the filename and all parameters, copy it to memory with strlcpy, and tokenize the filename and the parameters using strtoken_r to separate them. Then we create the new thread and execute it with just the file name as the first argument and the entire filename as the last. //Unneeded?
+Firstly we copy the entire filename and arguments using palloc to avoid a race condition between the caller and load().
+ Then we malloc the filename and all parameters, copy it to memory with strlcpy, and tokenize the filename and the parameters using strtoken_r to separate them.
+ Then we create the new thread and execute it with just the file name as the first argument and the entire filename as the last
 
 We map a zero page at the top of virtual memory and check to see if the page we actually want is less than PHYS_BASE,
 this prevents us from overflowing the stack page. If that passes we tokenize the filename and the parameters in order to separate them with strtok_r and then loop through the tokens and place them in an array in reverse order that is a copy of argv then copy that array back into argv. Now that argv has the arguments in the right order we go through and push argv, argc, and a void* return address.
@@ -118,6 +122,7 @@ struct child
 	int exit_error; //the number associated with an error
 	bool used; //whether or not the child completed
 };
+Holds information that pertains to child threads.
 
 struct process_file
 {
@@ -260,6 +265,7 @@ I would say this project was fairly diffcult and more time consuming compared to
 I think this project would work better if broken into smaller projects, but at the current time I do 
 not know how that would be possible.
 
+Compared to the last project, this one was far more difficult in terms of implementation and comprehension.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
@@ -275,11 +281,14 @@ I learned more of why it was used in a reverse order and learned more about memo
 The project was very hard to figure out where to start. When passing arguments, the description sounded like it would be fairly simple.
 But, as the project continued it became more and more complicated and harder to keep track of where I needed to look for help.
 
+Maybe if either argument passing or system calls were already implemented then the project would not have been such a pain, trying to 
+build them both in tandem is like trying to build a railroad track while starting at two ends and meeting in the middle.  We had to go
+back and redo both syscall.c and process.c because they weren't matching up correctly.
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
 
-The pintos book is pretty good at helping when I already know what I am supposed to do. I think there needs to be some kind of resource that better
-explains different methods and describes processes more clearly.
+The pintos book is pretty good at helping when I already know what I am supposed to do. I think there needs to be some kind of resource that better explains different methods and describes processes more clearly.
 
 >> Any other comments?
 
