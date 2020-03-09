@@ -11,7 +11,7 @@
 
 static void syscall_handler(struct intr_frame *);
 void* check_addr(const void*);
-struct proc_file* list_search(struct list *, int);
+struct process_file* list_search(struct list *, int);
 
 struct proc_file
 {
@@ -227,13 +227,14 @@ open(const char *file)
 		return -1;
 	else
 	{
+
 		struct file *cur_file = filesys_open(file);
 		struct proc_file *proc_file = malloc(sizeof(*proc_file));
 		proc_file->ptr = file_ptr;
 		proc_file->fd = thread_current()->fd_count;
 		thread_current()->fd_count++;
-		list_push_back(&thread_current()->all_files, &proc_file->elem);
-		return proc_file->fd;
+		list_push_back(&thread_current()->all_files, &process_file->elem);
+		return process_file->fd;
 	}
 }
 
@@ -357,7 +358,7 @@ close_all_files(struct list *files)
 	while (!list_empty(files))
 	{
 		e = list_pop_front(files);
-		struct proc_file *f = list_entry(e, struct proc_file, elem);
+		struct process_file *f = list_entry(e, struct process_file, elem);
 		file_close(f->ptr);
 		list_remove(e);
 		free(f);
@@ -367,7 +368,7 @@ close_all_files(struct list *files)
 /*
 Looks through a list to see if the fd is inside.
 */
-struct proc_file*
+struct process_file*
 	list_search(struct list *files, int fd)
 {
 	struct list_elem *e;
@@ -376,7 +377,7 @@ struct proc_file*
 		e = list_next(e))
 
 	{
-		struct proc_file *f = list_entry(e, struct proc_file, elem);
+		struct process_file *f = list_entry(e, struct process_file, elem);
 		if (f->fd == fd)
 			return f;
 	}

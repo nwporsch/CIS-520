@@ -304,7 +304,7 @@ thread_exit(void)
 
 	while (!list_empty(&thread_current()->children))
 	{
-		struct proc_file *f = list_entry(list_pop_front(&thread_current()->children),
+		struct process_file *f = list_entry(list_pop_front(&thread_current()->children),
 			struct child, childelem);
 		free(f);
 	}
