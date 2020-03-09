@@ -149,7 +149,7 @@ exit(int status)
 		e = list_next(e))
 	{
 		struct child *child = list_entry(e, struct child, childelem);
-		if (child>tid == thread_current()->tid)
+		if (child->tid == thread_current()->tid)
 		{
 			child->used = true;
 			child->exit_error = status;
