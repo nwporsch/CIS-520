@@ -59,6 +59,7 @@ struct child
 	int exit_error; //the number associated with an error
 	bool used; //whether or not the child completed
 };
+
 Holds information that pertains to child threads.
 
 ---- ALGORITHMS ----
@@ -67,7 +68,9 @@ Holds information that pertains to child threads.
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
-Firstly we copy the entire filename and arguments using palloc to avoid a race condition between the caller and load(). Then we malloc the filename and all parameters, copy it to memory with strlcpy, and tokenize the filename and the parameters using strtoken_r to separate them. Then we create the new thread and execute it with just the file name as the first argument and the entire filename as the last.
+Firstly we copy the entire filename and arguments using palloc to avoid a race condition between the caller and load().
+ Then we malloc the filename and all parameters, copy it to memory with strlcpy, and tokenize the filename and the parameters using strtoken_r to separate them.
+ Then we create the new thread and execute it with just the file name as the first argument and the entire filename as the last
 
 We map a zero page at the top of virtual memory and check to see if the page we actually want is less than PHYS_BASE,
 this prevents us from overflowing the stack page. If that passes we tokenize the filename and the parameters in order to separate them with strtok_r and then loop through the tokens and place them in an array in reverse order that is a copy of argv then copy that array back into argv. Now that argv has the arguments in the right order we go through and push argv, argc, and a void* return address.
@@ -127,6 +130,7 @@ struct process_file
 	int fd; //Keeps track of how many files are being accessed by the process.
 	struct list_elem elem; //An element that allows processes to be used in lists.
 };
+
 Holds information that pertains to open files.
 
 >> B2: Describe how file descriptors are associated with open files.
@@ -268,6 +272,7 @@ Compared to the last project, this one was far more difficult in terms of implem
 
 Originally, I had a very basic understanding of how the stack functioned. But, during the stack's construction
 I learned more of why it was used in a reverse order and learned more about memory management.
+
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
