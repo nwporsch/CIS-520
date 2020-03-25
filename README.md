@@ -10,3 +10,7 @@ the alarm-mega keyword is given.
 
 ## Project 1
 In this project we created the timer for pintos which allows threads to sleep at specfic interval. The code is located in /src/devices/timer.c and /src/devices/timer.h. We also worked on priority scheduling which worked out for the most part, but did not pass all tests so we reverted back to Project 0 so we can continue working on Project 2. We also kept the implementation of timer becuase it will be used in later projects.
+
+
+## Project 2
+In this project we implemented user processes and system calls. The code involved implementing /src/userprog/syscall.c entirely. /src/userprog/exception.c was changed slightly to handle more exceptions that could happen during the running of processes. Then lastly, we implemented src/userprog/process.c which defines how a process is created such as setting up a stack, argument passing, and how to excute processes from a thread. /src/threads/threads.c were also changed slightly to allow the thread to have child processes and be able to keep track of what files the thread had opened.
