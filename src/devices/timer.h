@@ -3,7 +3,6 @@
 
 #include <round.h>
 #include <stdint.h>
-#include "threads/thread.h"
 
 /* Number of timer interrupts per second. */
 #define TIMER_FREQ 100
@@ -13,7 +12,6 @@ void timer_calibrate (void);
 
 int64_t timer_ticks (void);
 int64_t timer_elapsed (int64_t);
-
 
 /* Sleep and yield the CPU to other threads. */
 void timer_sleep (int64_t ticks);
@@ -27,11 +25,5 @@ void timer_udelay (int64_t microseconds);
 void timer_ndelay (int64_t nanoseconds);
 
 void timer_print_stats (void);
-
-/* Goes through list of sleeping threads to see which are ready */
-void check_sleeping_threads(int64_t ticks);
-
-
-bool compare_wakeups(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 
 #endif /* devices/timer.h */
