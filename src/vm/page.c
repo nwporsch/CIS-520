@@ -50,10 +50,12 @@ page_for_addr (const void *address)
       if (e != NULL)
         return hash_entry (e, struct page, hash_elem);
 
-      /* No page.  Expand stack? */
-
-/* add code */
-
+      /* No page.  we need to expand the stack since we have more page addresses than size of stack 
+	  We also need to check that the current users's frames are less than the address and if so we can
+	  allocate new pages. */
+	  if ((address > PHYS_BASE - STACK_MAX) && ((void *)thread_current()->user_esp - 32 < address)) {
+		  return page_allocate(p.addr, false); /*Attempts to allocate a new page. */
+	  }
     }
   return NULL;
 }
@@ -145,15 +147,32 @@ page_out (struct page *p)
      dirty bit, to prevent a race with the process dirtying the
      page. */
 
-/* add code here */
+  pagedir_clear_page(p->thread->pagedir, (void*) p->addr);
 
   /* Has the frame been modified? */
 
-/* add code here */
+  dirty = pagedir_is_dirty(p->thread->pagedir, ((const void*)p->addr));
+
+  if (p->file == NULL) { /* No file is found and we need to swap */
+	  ok = swap_out(p);
+  }
+  else if(dirty){ /* Page is dirty so we need to swap it out*/
+	  if (p->private) { /* Checks to see if we can write back to swap */
+		  ok - swap_out(p);
+	  }
+	  else { /* Write to file */
+		  ok = file_write_at(p->file, (const void *)p->frame->base, p->file_bytes, p->file_offset);
+	  }
+  }
+  else if (!dirty) { /* Page is not dirty so we do not need to modify*/
+	  ok = true;
+  }
 
   /* Write frame contents to disk if necessary. */
 
-/* add code here */
+  if (ok) { /* If it is okay to swap then we do not need this frame */
+	  p->frame = NULL;
+  }
 
   return ok;
 }
