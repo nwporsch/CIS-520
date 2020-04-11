@@ -77,7 +77,7 @@ swap_out (struct page *p)
 /* add code here */ 
   for(i = 0; i < PAGE_SECTORS;i++)
   {
-	  block_write(swap_device, p->sector + x, p->frame->base + x * BLOCK_SECTOR_SIZE);
+	  block_write(swap_device, p->sector + i, p->frame->base + i * BLOCK_SECTOR_SIZE);
   }
 
 
