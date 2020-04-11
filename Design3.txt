@@ -8,9 +8,9 @@
 
 >> Fill in the names of your group members.
 
-Nickalas Porsch
-Caleb Logan
-Aidan Javier
+Aidan Javier    <apjavier@ksu.edu>
+Caleb Logan     <catiel@ksu.edu>
+Nickalas Porsch <nwporsch@ksu.edu>
 
 ---- PRELIMINARIES ----
 
@@ -112,6 +112,12 @@ addresses that is associated with the mapping.
 >> implementation either does or does not share much of the code for
 >> the two situations.
 
+Demand pages uses swapping which is not used in mmap which means we do not share code.
+But, the methods are similar because mmap takes a mapping and places it at the front of the mapping list
+for the current running thread. Meaning the mapping will be used immediately which is similar to how demand paging
+brings in a page only when it is needed. 
+
+
 			   SURVEY QUESTIONS
 			   ================
 
@@ -121,15 +127,22 @@ want--these questions are just to spur your thoughts.  You may also
 choose to respond anonymously in the course evaluations at the end of
 the quarter.
 
+
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+	I'd say it was a little easy, but it was hard to answer some of the design documentation questions because of how little code was actually written.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
-
+	
+	Kind of it made us learn more about demand paging.
+	
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+
+	Some of the questions on the design doc could have been worded better, for example C4.
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
