@@ -504,17 +504,25 @@ lookup_mapping (int handle)
 static void
 unmap (struct mapping *m) 
 {
+/* add code here */
+  size_t t;
+  void * addr;
+  list_remove(&m->elem);
+  for(t = m->page_cnt, addr = m->base;t>0;t--,addr += PGSIZE)
+  {
+	 page_deallocate(addr);
+  }
+  /* Nick's implementation */
+	//list_remove(&m->elem);
 
-	list_remove(&m->elem);
-
-	for (int i = 0; i < m->page_cnt; i++) { /*Goes through each page in the file*/
-		if (pagedir_is_dirty(thread_current()->pagedir, ((const void *)((m->base) + (PGSIZE * i))))) { /*If page is dirty*/
-			lock_acquire(&fs_lock);
+//	for (int i = 0; i < m->page_cnt; i++) { /*Goes through each page in the file*/
+//		if (pagedir_is_dirty(thread_current()->pagedir, ((const void *)((m->base) + (PGSIZE * i))))) { /*If page is dirty*/
+//			lock_acquire(&fs_lock);
 			/* Write page to disk */
-			file_write_at(m->file, (const void *)(m->base + (PGSIZE * i)), (PGSIZE *(m->page->cnt)), (PGSIZE * i));
-			lock_release(&fs_lock);
-		}
-	}
+//			file_write_at(m->file, (const void *)(m->base + (PGSIZE * i)), (PGSIZE *(m->page->cnt)), (PGSIZE * i));
+//			lock_release(&fs_lock);
+//		}
+//	}
 
 }
  
@@ -572,7 +580,8 @@ static int
 sys_munmap (int mapping) 
 {
 /* add code here */
-
+  struct mapping *map = lookup_mapping(mapping);
+  unmap(map);
   return 0;
 }
  
