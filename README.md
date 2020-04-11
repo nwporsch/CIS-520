@@ -14,3 +14,7 @@ In this project we created the timer for pintos which allows threads to sleep at
 
 ## Project 2
 In this project we implemented user processes and system calls. The code involved implementing /src/userprog/syscall.c entirely. /src/userprog/exception.c was changed slightly to handle more exceptions that could happen during the running of processes. Then lastly, we implemented src/userprog/process.c which defines how a process is created such as setting up a stack, argument passing, and how to excute processes from a thread. /src/threads/threads.c were also changed slightly to allow the thread to have child processes and be able to keep track of what files the thread had opened.
+
+## Project 3
+In this project we implemented virtual memory. The code involved adding more functionality /src/userprog/syscall.c. Then vm/page.c was changed to look for frames that could be freed. vm/swap.c was changed to allow swapping to actually be used in pintos.
+
