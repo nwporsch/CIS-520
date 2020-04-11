@@ -158,7 +158,7 @@ page_out (struct page *p)
   }
   else if(dirty){ /* Page is dirty so we need to swap it out*/
 	  if (p->private) { /* Checks to see if we can write back to swap */
-		  ok - swap_out(p);
+		  ok = swap_out(p);
 	  }
 	  else { /* Write to file */
 		  ok = file_write_at(p->file, (const void *)p->frame->base, p->file_bytes, p->file_offset);

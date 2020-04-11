@@ -21,6 +21,13 @@ Aidan Javier
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
+
+Used to better understand the steps to solving project 3: http://courses.cs.vt.edu/~cs3204/spring2006/project3milestone.html
+Used to understand how to setup dirty pages: https://github.com/rpwilliams/CIS520_Proj3/blob/master/pintos3_recompiled/pintos/src/vm/page.c
+Understanding mmap unmap: https://github.com/ChristianJHughes/pintos-project3/tree/master/pintos3/src/vm
+Helped with mapping: https://github.com/rida300/520PintosProj3/
+
+
 			PAGE TABLE MANAGEMENT
 			=====================
 
@@ -29,10 +36,21 @@ Aidan Javier
 >> A1: In a few paragraphs, describe the existing code for locating the
 >> frame, if any, that contains the data of a given page.
 
+When a page calls do_page_in() the page will allocated a new frame and frame lock. If a frame could not be created then
+the page is not paged in.
+In pageout() the method checks to see if the current frame is NULL and if there is a lock on the frame.
+Since pageout() was not implemented it would always return false meaning that the page was not evicted.
+
+
+
 ---- SYNCHRONIZATION ----
 
 >> A2: When two user processes both need a new frame at the same time,
 >> how are races avoided?
+
+	In do_page_in we create a frame by calling frame_alloc_and_lock which allocates a new frame and locks it.
+	By locking the frame, it stops two user processes from both creating a frame at the same time.
+
 
 		       PAGING TO AND FROM DISK
 		       =======================
@@ -42,9 +60,20 @@ Aidan Javier
 >> B1: When a frame is required but none is free, some frame must be
 >> evicted.  Describe the algorithm used to choose a frame to evict.
 
+	In page_out(), we first clear the page from page directory which will prevent race conditions when checking if a page is dirty.
+	Then we check to see if the page is dirty and then check other conditions. First check to see if the file in the page is null meaning
+	the page is avaiable to swap out because there is no file found. Then check to see if the file is dirty. If it is dirty we then check to see
+	if the page can be written to swap and if so we swap it out. Else we write the file to disk. If the page is not dirty, then it is okay to clear the frame.
+
+
 >> B2: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
+
+We try to find an existing page and if no page exists, meaning the virtual address is invalid, we need to expand the stack since we have more page addresses than the size of the stack.
+We also check to make sure the user's frames are less than the address provides and if so we allocate new pages.
+
+
 
 			 MEMORY MAPPED FILES
 			 ===================
@@ -55,14 +84,24 @@ Aidan Javier
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+No new declarations were created or changed.
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how memory mapped files integrate into your virtual
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+In swap_out() we clear out all page sectors in a page which allows us to swap out the page for a new one.
+
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+In munmap, we call lookup_mapping to find a new map and then call unmap to deallocate each page from their
+addresses that is associated with the mapping.
+
+
 
 ---- RATIONALE ----
 
