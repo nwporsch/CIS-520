@@ -505,6 +505,13 @@ static void
 unmap (struct mapping *m) 
 {
 /* add code here */
+  size_t t;
+  void * addr;
+  list_remove(&m->elem);
+  for(t = m->page_cnt, addr = m->base;t>0;t--,addr += PGSIZE)
+  {
+	 page_deallocate(addr);
+  }
 }
  
 /* Mmap system call. */
@@ -561,7 +568,8 @@ static int
 sys_munmap (int mapping) 
 {
 /* add code here */
-
+  struct mapping *map = lookup_mapping(mapping);
+  unmap(map);
   return 0;
 }
  
