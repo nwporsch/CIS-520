@@ -18,3 +18,5 @@ In this project we implemented user processes and system calls. The code involve
 ## Project 3
 In this project we implemented virtual memory. The code involved adding more functionality /src/userprog/syscall.c. Then vm/page.c was changed to look for frames that could be freed. vm/swap.c was changed to allow swapping to actually be used in pintos.
 
+## Testing Projects
+For testing projects, I created a script to automate testing every 5 minutes. This should help when you need to run tests, but want to keep working on the project. [Link to CheckPintos Project](https://github.com/nwporsch/Bash-Scripts/blob/master/checkPintos)
